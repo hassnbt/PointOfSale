@@ -7,6 +7,8 @@ public class Product {
     private String name;
     private double price;
     private int quantity;
+    private int quantityperunit;
+
     private LocalDateTime createdOn;
     private String createdBy;
     private boolean isActive;
@@ -20,6 +22,7 @@ public class Product {
         this.createdOn = createdOn;
         this.createdBy = createdBy;
         this.isActive = isActive;
+        this.quantityperunit=6;
     }
 
     // Getters
@@ -30,6 +33,7 @@ public class Product {
     public LocalDateTime getCreatedOn() { return createdOn; }
     public String getCreatedBy() { return createdBy; }
     public boolean isActive() { return isActive; }
+    public int getQuantityperunit() { return quantityperunit; }
 
     // Setters
     public void setName(String name) { this.name = name; }
@@ -38,7 +42,7 @@ public class Product {
     public void setCreatedOn(LocalDateTime createdOn) { this.createdOn = createdOn; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
     public void setActive(boolean active) { isActive = active; }
-
+    public void setQuantityperunit(int quantityperunit) { quantityperunit = quantityperunit; }
     @Override
     public String toString() {
         return "Product{" +
@@ -46,6 +50,7 @@ public class Product {
                 ", name='" + name + '\'' +
                 ", price=" + price +
                 ", quantity=" + quantity +
+                ", quantityperunit=" + quantityperunit +
                 ", createdOn=" + createdOn +
                 ", createdBy='" + createdBy + '\'' +
                 ", isActive=" + isActive +

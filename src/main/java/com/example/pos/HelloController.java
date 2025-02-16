@@ -160,7 +160,6 @@ public class HelloController {
         alert.showAndWait();
     }
     @FXML
-
     private void handleHomeButton(ActionEvent event) throws IOException {
         // Load the Home.fxml file
         FXMLLoader loader = new FXMLLoader(getClass().getResource("home.fxml"));
