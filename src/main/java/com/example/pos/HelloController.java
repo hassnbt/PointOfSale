@@ -1,155 +1,248 @@
 package com.example.pos;
 
-import javafx.animation.FadeTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.util.Duration;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.geometry.Insets;
 import models.Product;
-import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
-import javafx.scene.Node;
-import javafx.event.ActionEvent;
-import java.io.IOException;
+
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 public class HelloController {
 
-    public Button inventoryButton;
-    @FXML
-    private TableView<Product> productTable;
-    @FXML
-    private TableColumn<Product, String> productColumn;
-    @FXML
-    private TableColumn<Product, Double> priceColumn;
-    @FXML
-    private TableColumn<Product, Integer> quantityColumn;
-    @FXML
-    private Button addButton;
-    @FXML
-    private Button deleteButton;
-    @FXML
-    private Button increaseQuantityButton;
-    @FXML
-    private Button decreaseQuantityButton;
-    @FXML
-    private TextField productNameField;
-    @FXML
-    private TextField priceField;
-    @FXML
-    private TextField quantityField;
-    @FXML
-    private TextField searchField;
+    // Buttons (make sure fx:id values match in FXML)
+    @FXML public Button addProductButton;
+    @FXML public Button deleteProductButton;
+    @FXML public Button homeButton;
 
-    private ObservableList<Product> products = FXCollections.observableArrayList();
-    private FilteredList<Product> filteredProducts;
+    // Input fields for adding a product
+    @FXML private TextField productNameField, priceField, originalPriceField, quantityField, quantityPerUnitField, searchField;
+
+    // Table and its columns (only the ones to display)
+    @FXML private TableView<Product> productTable;
+    @FXML private TableColumn<Product, String> productColumn;
+    @FXML private TableColumn<Product, Double> priceColumn;
+    @FXML private TableColumn<Product, Double> originalPriceColumn;
+    @FXML private TableColumn<Product, Integer> quantityColumn;
+    @FXML private TableColumn<Product, Integer> quantityPerUnitColumn;
+
+    // Actions column for per-row buttons
+    @FXML private TableColumn<Product, Void> actionsColumn;
+
+    private ObservableList<Product> productList = FXCollections.observableArrayList();
+    private FilteredList<Product> filteredList;
+    private Connection conn;
+
+    // Formatter for date strings if needed (not shown in the UI)
+    private final DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @FXML
     public void initialize() {
+        connectToDatabase();
+        setupTableColumns();
+        setupActionsColumn();  // Set up custom cell with Update and Delete buttons.
+        loadProducts();
+        setupSearchFilter();
+    }
+
+    private void connectToDatabase() {
+        try {
+            // Firebird connection URL (adjust path, user, and password as needed)
+            String url = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+            String user = "sysdba";
+            String password = "123456";
+            conn = DriverManager.getConnection(url, user, password);
+        } catch (SQLException e) {
+            showAlert("Database Error", "Unable to connect to database: " + e.getMessage());
+        }
+    }
+
+    private void setupTableColumns() {
+        // Ensure these property names match your Product model getters
         productColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
         priceColumn.setCellValueFactory(new PropertyValueFactory<>("price"));
+        originalPriceColumn.setCellValueFactory(new PropertyValueFactory<>("originalPrice"));
         quantityColumn.setCellValueFactory(new PropertyValueFactory<>("quantity"));
-        final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/MYDATABASE.fdb";
-        final String USER = "sysdba";
-        final String PASSWORD = "123456";
-        // Dummy product data
-        String query = "SELECT ID, NAME, PRICE, QUANTITY, CREATED_AT, CREATED_BY, IS_AVAILABLE FROM PRODUCTS";
+        quantityPerUnitColumn.setCellValueFactory(new PropertyValueFactory<>("quantityPerUnit"));
+    }
 
-        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-             PreparedStatement stmt = conn.prepareStatement(query);
-             ResultSet rs = stmt.executeQuery()) {
+    private void setupActionsColumn() {
+        actionsColumn.setCellFactory(col -> new TableCell<Product, Void>() {
+            private final Button updateBtn = new Button("Update");
+            private final Button deleteBtn = new Button("Delete");
+            private final HBox pane = new HBox(5, updateBtn, deleteBtn);
 
-            while (rs.next()) {
-                int id = rs.getInt("ID");
-                String name = rs.getString("NAME");
-                double price = rs.getDouble("PRICE");
-                int quantity = rs.getInt("QUANTITY");
-                LocalDateTime createdAt = rs.getTimestamp("CREATED_AT").toLocalDateTime();
-                String createdBy = rs.getString("CREATED_BY");
-                boolean active = rs.getBoolean("IS_AVAILABLE");
+            {
+                // Update button opens a dialog to change quantity, price, and original price.
+                updateBtn.setOnAction(e -> {
+                    Product product = getTableView().getItems().get(getIndex());
+                    Dialog<ButtonType> dialog = new Dialog<>();
+                    dialog.setTitle("Update Product");
+                    dialog.setHeaderText("Update details for " + product.getName());
 
-                products.add(new Product(id, name, price, quantity, createdAt, createdBy, active));
+                    GridPane grid = new GridPane();
+                    grid.setHgap(10);
+                    grid.setVgap(10);
+                    grid.setPadding(new Insets(20, 150, 10, 10));
+
+                    TextField quantityField = new TextField(String.valueOf(product.getQuantity()));
+                    TextField priceField = new TextField(String.valueOf(product.getPrice()));
+                    TextField originalPriceField = new TextField(String.valueOf(product.getOriginalPrice()));
+
+                    grid.add(new Label("Quantity:"), 0, 0);
+                    grid.add(quantityField, 1, 0);
+                    grid.add(new Label("Price:"), 0, 1);
+                    grid.add(priceField, 1, 1);
+                    grid.add(new Label("Original Price:"), 0, 2);
+                    grid.add(originalPriceField, 1, 2);
+
+                    dialog.getDialogPane().setContent(grid);
+                    dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+                    Optional<ButtonType> result = dialog.showAndWait();
+                    if (result.isPresent() && result.get() == ButtonType.OK) {
+                        try {
+                            int newQuantity = Integer.parseInt(quantityField.getText());
+                            double newPrice = Double.parseDouble(priceField.getText());
+                            double newOriginalPrice = Double.parseDouble(originalPriceField.getText());
+                            updateProductDetails(product, newQuantity, newPrice, newOriginalPrice);
+                        } catch (NumberFormatException ex) {
+                            showAlert("Invalid Input", "Please enter valid numeric values.");
+                        }
+                    }
+                });
+
+                // Delete button confirms deletion before removing product.
+                deleteBtn.setOnAction(e -> {
+                    Product product = getTableView().getItems().get(getIndex());
+                    Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION,
+                            "Are you sure you want to delete product \"" + product.getName() + "\"?",
+                            ButtonType.YES, ButtonType.NO);
+                    Optional<ButtonType> response = confirmation.showAndWait();
+                    if (response.isPresent() && response.get() == ButtonType.YES) {
+                        deleteProduct(product);
+                    }
+                });
             }
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        // Filtered list for search functionality
-        filteredProducts = new FilteredList<>(products, p -> true);
-        productTable.setItems(filteredProducts);
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : pane);
+            }
+        });
+    }
 
-        // Bind search input to product filtering
-        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            filteredProducts.setPredicate(product -> {
-                if (newValue == null || newValue.isEmpty()) {
-                    return true; // Show all products when search is empty
-                }
-                String lowerCaseFilter = newValue.toLowerCase();
-                return product.getName().toLowerCase().contains(lowerCaseFilter);
+    private void loadProducts() {
+        productList.clear();
+        String sql = "SELECT * FROM PRODUCTS";
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String name = rs.getString("name");
+                double price = rs.getDouble("price");
+                double originalPrice = rs.getDouble("original_price");
+                int quantity = rs.getInt("quantity");
+                int quantityPerUnit = rs.getInt("quantity_perunit");
+                // For simplicity, we set createdOn to now, createdBy to an empty string, isActive to true.
+                Product prod = new Product(id, name, price, quantity, LocalDateTime.now(), "", true, quantityPerUnit, originalPrice);
+                productList.add(prod);
+            }
+        } catch (SQLException e) {
+            showAlert("Database Error", "Error loading products: " + e.getMessage());
+        }
+        filteredList = new FilteredList<>(productList, p -> true);
+        productTable.setItems(filteredList);
+    }
+
+    private void setupSearchFilter() {
+        searchField.textProperty().addListener((obs, oldValue, newValue) -> {
+            filteredList.setPredicate(product -> {
+                if (newValue == null || newValue.isEmpty()) return true;
+                return product.getName().toLowerCase().contains(newValue.toLowerCase());
             });
         });
     }
 
     @FXML
-    private void handleAddProduct() {
+    private void handleAddProduct(ActionEvent event) {
         try {
             String name = productNameField.getText();
             double price = Double.parseDouble(priceField.getText());
+            double originalPrice = Double.parseDouble(originalPriceField.getText());
             int quantity = Integer.parseInt(quantityField.getText());
+            int quantityPerUnit = Integer.parseInt(quantityPerUnitField.getText());
 
-            Product newProduct = new Product(products.size() + 1, name, price, quantity, LocalDateTime.now(), "Admin", true);
-            products.add(newProduct);
-
+            // Insert using CURRENT_TIMESTAMP for created_on and default TRUE for is_active.
+            String sql = "INSERT INTO products (name, price, original_price, quantity, quantity_perunit, created_on, is_active) " +
+                    "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, TRUE)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, name);
+                pstmt.setDouble(2, price);
+                pstmt.setDouble(3, originalPrice);
+                pstmt.setInt(4, quantity);
+                pstmt.setInt(5, quantityPerUnit);
+                pstmt.executeUpdate();
+            }
+            loadProducts();
             clearFields();
-        } catch (NumberFormatException e) {
-            showAlert("Invalid Input", "Please enter valid values for price and quantity.");
+        } catch (Exception e) {
+            showAlert("Invalid Input", "Please check your input values. Error: " + e.getMessage());
         }
     }
 
     @FXML
-    private void handleDeleteProduct() {
+    private void handleDeleteProduct(ActionEvent event) {
+        // This method is retained for external delete button usage, if needed.
         Product selectedProduct = productTable.getSelectionModel().getSelectedItem();
-        if (selectedProduct != null) {
-            products.remove(selectedProduct);
-        } else {
+        if (selectedProduct == null) {
             showAlert("No Selection", "Please select a product to delete.");
+            return;
+        }
+        deleteProduct(selectedProduct);
+    }
+
+    private void updateProductDetails(Product product, int newQuantity, double newPrice, double newOriginalPrice) {
+        String sql = "UPDATE products SET quantity = ?, price = ?, original_price = ? WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, newQuantity);
+            pstmt.setDouble(2, newPrice);
+            pstmt.setDouble(3, newOriginalPrice);
+            pstmt.setInt(4, product.getId());
+            pstmt.executeUpdate();
+            loadProducts();
+        } catch (SQLException e) {
+            showAlert("Database Error", "Error updating product: " + e.getMessage());
         }
     }
 
-    @FXML
-    private void handleIncreaseQuantity() {
-        Product selectedProduct = productTable.getSelectionModel().getSelectedItem();
-        if (selectedProduct != null) {
-            selectedProduct.setQuantity(selectedProduct.getQuantity() + 1);
-            productTable.refresh();
-        } else {
-            showAlert("No Selection", "Please select a product to increase quantity.");
-        }
-    }
-
-    @FXML
-    private void handleDecreaseQuantity() {
-        Product selectedProduct = productTable.getSelectionModel().getSelectedItem();
-        if (selectedProduct != null && selectedProduct.getQuantity() > 0) {
-            selectedProduct.setQuantity(selectedProduct.getQuantity() - 1);
-            productTable.refresh();
-        } else {
-            showAlert("No Selection", "Please select a product to decrease quantity.");
+    private void deleteProduct(Product product) {
+        String sql = "DELETE FROM products WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, product.getId());
+            pstmt.executeUpdate();
+            loadProducts();
+        } catch (SQLException e) {
+            showAlert("Database Error", "Error deleting product: " + e.getMessage());
         }
     }
 
     private void clearFields() {
         productNameField.clear();
         priceField.clear();
+        originalPriceField.clear();
         quantityField.clear();
+        quantityPerUnitField.clear();
     }
 
     private void showAlert(String title, String message) {
@@ -159,28 +252,4 @@ public class HelloController {
         alert.setContentText(message);
         alert.showAndWait();
     }
-    @FXML
-    private void handleHomeButton(ActionEvent event) throws IOException {
-        // Load the Home.fxml file
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("home.fxml"));
-        Parent homeRoot = loader.load();
-
-        // Get the current stage
-        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-
-        // Apply Fade Transition
-        homeRoot.setOpacity(0);
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(500), homeRoot);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-        fadeIn.play();
-
-        // Set the new scene while keeping full-screen mode
-        Scene homeScene = new Scene(homeRoot, 800, 2500);
-        stage.setScene(homeScene);
-        stage.setTitle("Home Screen");
-        stage.setMaximized(true);  // Ensures full-screen mode remains
-        stage.show();
-    }
-
 }
