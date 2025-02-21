@@ -60,12 +60,12 @@ public class HomeController {
 
     @FXML
     private void handleInventoryButton(ActionEvent event) throws IOException {
-        switchScene(event, "inventory.fxml", "Inventory Management");
+        switchScene(event, "hello-view.fxml", "Inventory Management");
     }
 
     @FXML
     private void handleSalesButton(ActionEvent event) throws IOException {
-        switchScene(event, "hello-view.fxml", "Sales");
+        switchScene(event, "inventory.fxml", "Sales");
     }
 
     @FXML
@@ -307,6 +307,7 @@ public class HomeController {
     }
 
     @FXML
+
     private void handleCheckout(ActionEvent event) {
         if (cart.isEmpty()) {
             showAlert("Error", "Cart is empty!", Alert.AlertType.ERROR);
@@ -396,17 +397,53 @@ public class HomeController {
                 final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
                 final String USER = "sysdba";
                 final String PASSWORD = "123456";
-                String sql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total) " +
+
+                // Insert the bill record and retrieve the generated bill id.
+                int billId = -1;
+                String billSql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total) " +
                         "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-                     PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    pstmt.setDouble(1, amountReceived);
-                    pstmt.setDouble(2, cashOut);
-                    pstmt.setDouble(3, discount);
-                    pstmt.setString(4, buyerName);
-                    pstmt.setString(5, notes);
-                    pstmt.setDouble(6, total);
-                    pstmt.executeUpdate();
+                     PreparedStatement billPstmt = conn.prepareStatement(billSql, Statement.RETURN_GENERATED_KEYS)) {
+                    billPstmt.setDouble(1, amountReceived);
+                    billPstmt.setDouble(2, cashOut);
+                    billPstmt.setDouble(3, discount);
+                    billPstmt.setString(4, buyerName);
+                    billPstmt.setString(5, notes);
+                    billPstmt.setDouble(6, total);
+                    billPstmt.executeUpdate();
+
+                    ResultSet generatedKeys = billPstmt.getGeneratedKeys();
+                    if (generatedKeys.next()) {
+                        billId = generatedKeys.getInt(1);
+                    }
+                }
+
+                if (billId == -1) {
+                    showAlert("Error", "Failed to retrieve Bill ID.", Alert.AlertType.ERROR);
+                    return;
+                }
+
+                // Insert each cart item into the CART table with the retrieved bill id.
+                String cartSql = "INSERT INTO CART (bill_id, product_id, name, price, quantity, original_price, created_on, created_by, is_active, quantity_per_unit) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)";
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                     PreparedStatement cartPstmt = conn.prepareStatement(cartSql)) {
+                    for (Product p : cart) {
+                        cartPstmt.setInt(1, billId);
+                        cartPstmt.setInt(2, p.getId());
+                        cartPstmt.setString(3, p.getName());
+                        cartPstmt.setDouble(4, p.getPrice());
+                        cartPstmt.setInt(5, p.getQuantity());
+                        cartPstmt.setDouble(6, p.getOriginalPrice());
+                        // Assuming "created_by" is stored in p.getCreatedBy(), or use a default value.
+                        cartPstmt.setString(7, p.getCreatedBy() != null ? p.getCreatedBy() : "User");
+                        cartPstmt.setBoolean(8, p.isActive());
+                        // Since quantity per unit is not used, set to 0.
+                        cartPstmt.setInt(9, p.getQuantityPerUnit());
+                        cartPstmt.executeUpdate();
+                    }
+                } catch (SQLException e) {
+                    showAlert("Database Error", "Error inserting cart items: " + e.getMessage(), Alert.AlertType.ERROR);
                 }
 
                 // Update product quantities in the database by subtracting the purchased quantity.
@@ -434,6 +471,7 @@ public class HomeController {
             }
         }
     }
+
     private void showAlert(String title, String message, Alert.AlertType type) {
         Alert alert = new Alert(type);
         alert.setTitle(title);

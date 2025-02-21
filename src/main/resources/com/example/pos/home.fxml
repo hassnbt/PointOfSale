@@ -11,7 +11,7 @@
         <HBox spacing="15" style="-fx-background-color: #2C3E50; -fx-padding: 10px;">
             <Button text="📦 Inventory" fx:id="inventoryButton" onAction="#handleInventoryButton"
                     style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-            <Button text="🛒 Sales" fx:id="salesButton" onAction="#handleSalesButton"
+            <Button text="🛒 Bills" fx:id="salesButton" onAction="#handleSalesButton"
                     style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
             <Button text="📊 Reports" fx:id="reportsButton" onAction="#handleReportsButton"
                     style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>

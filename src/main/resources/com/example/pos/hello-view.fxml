@@ -21,11 +21,14 @@
     <left>
         <VBox spacing="20" alignment="TOP_LEFT" prefWidth="200" style="-fx-background-color: #2C3E50; -fx-padding: 20;">
             <Label text="Menu" style="-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;"/>
-            <Button text="🏠 Home" style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-pref-width: 160;"/>
             <Button text="📦 Inventory" fx:id="inventoryButton" onAction="#handleInventoryButton"
                     style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-            <Button text="🛒 Sales" style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-pref-width: 160;"/>
-            <Button text="📊 Reports" style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-pref-width: 160;"/>
+            <Button text="🛒 Bills" fx:id="salesButton" onAction="#handleSalesButton"
+                    style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            <Button text="📊 Reports" fx:id="reportsButton" onAction="#handleReportsButton"
+                    style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            <Button text="🔙 Back" fx:id="backButton" onAction="#handleBackButton"
+                    style="-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-weight: bold;"/>
         </VBox>
     </left>
 

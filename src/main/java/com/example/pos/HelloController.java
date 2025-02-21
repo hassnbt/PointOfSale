@@ -262,9 +262,25 @@ public class HelloController {
     }
 
     @FXML
-    private void handleInventoryButton(ActionEvent event) throws IOException {
-        switchScene(event, "home.fxml", "Inventory Management");
+    private void handleBackButton(ActionEvent event) throws IOException {
+        switchScene(event, "hello-view.fxml", "Dosa Cola POS System");
     }
+
+    @FXML
+    private void handleInventoryButton(ActionEvent event) throws IOException {
+        switchScene(event, "hello-view.fxml", "Inventory Management");
+    }
+
+    @FXML
+    private void handleSalesButton(ActionEvent event) throws IOException {
+        switchScene(event, "inventory.fxml", "Sales");
+    }
+
+    @FXML
+    private void handleReportsButton(ActionEvent event) throws IOException {
+        switchScene(event, "reports.fxml", "Reports");
+    }
+
     private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
         FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
         Parent root = loader.load();
