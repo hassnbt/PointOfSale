@@ -65,7 +65,7 @@ public class HomeController {
 
     @FXML
     private void handleSalesButton(ActionEvent event) throws IOException {
-        switchScene(event, "inventory.fxml", "Sales");
+        switchScene(event, "hello-view.fxml", "Sales");
     }
 
     @FXML
@@ -91,7 +91,22 @@ public class HomeController {
 
     private ObservableList<Product> cart = FXCollections.observableArrayList();
     private Map<String, Product> availableProducts = new HashMap<>();
+    @FXML
+    private CheckBox manualPriceCheckBox;
+    @FXML
+    private TextField manualPriceField;
 
+    @FXML
+    private void toggleManualPriceField() {
+        boolean selected = manualPriceCheckBox.isSelected();
+        manualPriceField.setVisible(selected);
+        manualPriceField.setManaged(selected);
+        manualPriceField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (!newValue.matches("\\d*")) { // Allows only digits (0-9)
+                manualPriceField.setText(oldValue);
+            }
+        });// Ensures layout is adjusted
+    }
     @FXML
     public void initialize() {
         // Load available products from the DB using correct column names
@@ -162,7 +177,7 @@ public class HomeController {
                     .filter(prod -> prod.getId() == p.getId())
                     .findFirst()
                     .orElse(p); // fallback to p if not found
-            double packagePrice = baseProduct.getPrice();
+            double packagePrice = p.getPrice();
             double unitPrice = packagePrice / baseProduct.getQuantityPerUnit();
             double total = p.getQuantity() * packagePrice + p.getQuantityPerUnit() * unitPrice;
             return new SimpleDoubleProperty(total).asObject();
@@ -212,7 +227,10 @@ public class HomeController {
 
         // Get quantity from quantityField (default is 1 if empty)
         int quantityToAdd = 0;
+
         String quantityText = quantityField.getText().trim();
+
+
         if (!quantityText.isEmpty()) {
             try {
                 quantityToAdd = Integer.parseInt(quantityText);
@@ -239,6 +257,13 @@ public class HomeController {
                         selectedProduct.getPrice(), quantityToAdd, LocalDateTime.now(), "User", true,
                         selectedProduct.getQuantityPerUnit(), selectedProduct.getOriginalPrice());
                 // If not provided, you can set quantity per unit to 0.
+                if(manualPriceCheckBox.isSelected())
+                {
+
+
+                    newProduct.setPrice(Double.parseDouble(manualPriceField.getText().trim()));
+
+                }
                 newProduct.setQuantityPerUnit(0);
                 cart.add(newProduct);
             }
@@ -268,7 +293,7 @@ public class HomeController {
                     .findFirst()
                     .orElse(p); // fallback to p if not found
 
-            double packagePrice = baseProduct.getPrice();
+            double packagePrice = p.getPrice();
             double unitPrice = packagePrice / baseProduct.getQuantityPerUnit();
             total += p.getQuantity() * packagePrice + p.getQuantityPerUnit() * unitPrice;
         }
@@ -293,11 +318,9 @@ public class HomeController {
         dialog.setTitle("Checkout");
         dialog.setHeaderText("Enter Checkout Details");
 
-        // Set the button types.
         ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
 
-        // Create a GridPane for input fields.
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
@@ -313,7 +336,6 @@ public class HomeController {
         discountField.setPromptText("Discount");
         CheckBox fullAmountCheckBox = new CheckBox("All Amount Received");
 
-        // When checkbox is selected, disable amountReceivedField.
         fullAmountCheckBox.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
             amountReceivedField.setDisable(isSelected);
             if (isSelected) {
@@ -321,10 +343,9 @@ public class HomeController {
             }
         });
 
-        // Add controls to the grid.
         grid.add(new Label("Amount Received:"), 0, 0);
         grid.add(amountReceivedField, 1, 0);
-        grid.add(fullAmountCheckBox, 2, 0); // Checkbox in same row.
+        grid.add(fullAmountCheckBox, 2, 0);
         grid.add(new Label("Buyer Name:"), 0, 1);
         grid.add(buyerNameField, 1, 1);
         grid.add(new Label("Notes:"), 0, 2);
@@ -334,14 +355,12 @@ public class HomeController {
 
         dialog.getDialogPane().setContent(grid);
 
-        // Convert the result when OK is clicked.
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == okButtonType) {
                 Map<String, String> result = new HashMap<>();
                 result.put("buyerName", buyerNameField.getText());
                 result.put("notes", notesField.getText());
                 result.put("discount", discountField.getText());
-                // Determine amountReceived based on checkbox state.
                 if (fullAmountCheckBox.isSelected()) {
                     result.put("amountReceived", "ALL");
                 } else {
@@ -356,7 +375,6 @@ public class HomeController {
         if (result.isPresent()) {
             Map<String, String> checkoutData = result.get();
             try {
-                // Parse total amount from totalAmountLabel (assuming format "Total: $xx.xx")
                 String totalText = totalAmountLabel.getText();
                 double total = Double.parseDouble(totalText.replaceAll("[^0-9.]", ""));
                 double amountReceived;
@@ -366,22 +384,18 @@ public class HomeController {
                 } else {
                     amountReceived = Double.parseDouble(amtReceivedStr);
                 }
-                // Parse discount; if empty, assume 0.
                 double discount = 0;
                 String discountStr = checkoutData.get("discount");
                 if (discountStr != null && !discountStr.trim().isEmpty()) {
                     discount = Double.parseDouble(discountStr);
                 }
-                // Calculate cash out.
                 double cashOut = total - amountReceived - discount;
                 String buyerName = checkoutData.get("buyerName");
                 String notes = checkoutData.get("notes");
 
-                // Insert the bill record into the bills table.
                 final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
                 final String USER = "sysdba";
                 final String PASSWORD = "123456";
-                // Make sure your bills table now includes a discount column.
                 String sql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total) " +
                         "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
@@ -395,7 +409,20 @@ public class HomeController {
                     pstmt.executeUpdate();
                 }
 
-                // Show checkout confirmation, then clear cart.
+                // Update product quantities in the database by subtracting the purchased quantity.
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                    String updateSql = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
+                    try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                        for (Product p : cart) {
+                            pstmt.setInt(1, p.getQuantity());
+                            pstmt.setInt(2, p.getId());
+                            pstmt.executeUpdate();
+                        }
+                    }
+                } catch (SQLException e) {
+                    showAlert("Database Error", "Error updating product quantities: " + e.getMessage(), Alert.AlertType.ERROR);
+                }
+
                 showAlert("Checkout Successful", "Total Amount: " + totalAmountLabel.getText(), Alert.AlertType.INFORMATION);
                 cart.clear();
                 updateTotalAmount();
@@ -407,7 +434,6 @@ public class HomeController {
             }
         }
     }
-
     private void showAlert(String title, String message, Alert.AlertType type) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
@@ -505,5 +531,8 @@ public class HomeController {
                 setGraphic(spinner);
             }
         }
+
+
+
     }
 }

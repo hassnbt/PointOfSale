@@ -1,17 +1,25 @@
 package com.example.pos;
 
+import javafx.animation.FadeTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.geometry.Insets;
+import javafx.stage.Stage;
+import javafx.util.Duration;
 import models.Product;
 
+import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -251,5 +259,29 @@ public class HelloController {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    @FXML
+    private void handleInventoryButton(ActionEvent event) throws IOException {
+        switchScene(event, "home.fxml", "Inventory Management");
+    }
+    private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
+        Parent root = loader.load();
+
+        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+        Scene scene = new Scene(root, 800, 2500);
+
+        // Apply Fade Transition
+        root.setOpacity(0);
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(500), root);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+        fadeIn.play();
+
+        stage.setScene(scene);
+        stage.setTitle(title);
+        stage.setMaximized(true);
+        stage.show();
     }
 }

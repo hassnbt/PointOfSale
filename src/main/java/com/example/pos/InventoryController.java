@@ -2,15 +2,14 @@ package com.example.pos;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import models.Bill;
 import javafx.scene.layout.GridPane;
+import models.Bill;
 
 import java.sql.*;
 import java.time.LocalDate;
@@ -22,6 +21,7 @@ import java.util.Optional;
 
 public class InventoryController {
 
+    public Button homebutton;
     @FXML private DatePicker startDatePicker;
     @FXML private DatePicker endDatePicker;
     @FXML private TextField searchField;
@@ -36,6 +36,11 @@ public class InventoryController {
     @FXML private TableColumn<Bill, String> noteColumn;
     @FXML private TableColumn<Bill, Double> totalColumn;
     @FXML private TableColumn<Bill, Double> discountColumn;
+    // Summary Labels (these should be placed in the right pane of your FXML)
+    @FXML private Label amountReceivedLabel;
+    @FXML private Label amountPendingLabel;
+    @FXML private Label discountSummaryLabel;
+    @FXML private Label totalSummaryLabel;
 
     private ObservableList<Bill> billsList = FXCollections.observableArrayList();
 
@@ -50,7 +55,7 @@ public class InventoryController {
         billIdColumn.setCellValueFactory(new PropertyValueFactory<>("billid"));
         cashInColumn.setCellValueFactory(new PropertyValueFactory<>("cashIn"));
         cashOutColumn.setCellValueFactory(new PropertyValueFactory<>("cashOut"));
-        // Using the formatted property "showdate" (which should be provided in Bill) to display date.
+        // Use a formatted property "showdate" from Bill. Alternatively, use a lambda to format the "created" timestamp.
         createdColumn.setCellValueFactory(new PropertyValueFactory<>("showdate"));
         nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
         noteColumn.setCellValueFactory(new PropertyValueFactory<>("note"));
@@ -71,6 +76,9 @@ public class InventoryController {
             });
             return row;
         });
+
+        // Update the summary boxes after initial load.
+        updateSummary();
     }
 
     @FXML
@@ -130,6 +138,7 @@ public class InventoryController {
             alert.showAndWait();
         }
         billsTable.setItems(billsList);
+        updateSummary();
     }
 
     private void applyFilters() {
@@ -138,25 +147,22 @@ public class InventoryController {
         String searchText = searchField.getText().trim();
         boolean filterCashOut = cashOutFilterCheckBox.isSelected();
         boolean orderBySelected = orderby.isSelected();
-
         loadBills(startDate, endDate, searchText, filterCashOut);
     }
 
     /**
      * Called when a row is double-clicked to update a bill's payment details.
-     * Opens a modal dialog with a checkbox and a numeric input for how many payment units are received.
+     * Opens a modal dialog with a checkbox and a numeric input for payment.
      * If the checkbox is selected, the entire pending amount (cash_out) is used.
      */
     private void handleBillPaymentUpdate(Bill bill) {
         Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle("Update Payment for Bill: " + bill.getBillid()+" Name: "+ bill.getName()+"Date: "+bill.getShowdate());
+        dialog.setTitle("Update Payment for Bill: " + bill.getBillid() + " Name: " + bill.getName() + " Date: " + bill.getShowdate());
         dialog.setHeaderText("Enter Payment Details");
 
-        // Set OK and Cancel buttons.
         ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
 
-        // Create a GridPane to hold input controls.
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
@@ -165,7 +171,6 @@ public class InventoryController {
         TextField paymentField = new TextField();
         paymentField.setPromptText("Payment Amount");
         TextFormatter<String> numericFormatter = new TextFormatter<>(change -> {
-            // Allow only numbers, optional decimal point, and up to two decimal places.
             if (change.getControlNewText().matches("\\d*(\\.\\d{0,2})?")) {
                 return change;
             }
@@ -173,29 +178,20 @@ public class InventoryController {
         });
         paymentField.setTextFormatter(numericFormatter);
         CheckBox fullPaymentCheckBox = new CheckBox("All Amount Received");
-
-        // Disable paymentField if fullPaymentCheckBox is selected.
         fullPaymentCheckBox.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
             paymentField.setDisable(isSelected);
             if (isSelected) {
                 paymentField.clear();
             }
         });
-
         grid.add(new Label("Payment Received:"), 0, 0);
         grid.add(paymentField, 1, 0);
         grid.add(fullPaymentCheckBox, 2, 0);
 
         dialog.getDialogPane().setContent(grid);
-
-        // Convert result.
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == okButtonType) {
-                if (fullPaymentCheckBox.isSelected()) {
-                    return "ALL";
-                } else {
-                    return paymentField.getText();
-                }
+                return fullPaymentCheckBox.isSelected() ? "ALL" : paymentField.getText();
             }
             return null;
         });
@@ -205,7 +201,7 @@ public class InventoryController {
             String paymentInput = result.get();
             double paymentAmount;
             if ("ALL".equals(paymentInput)) {
-                paymentAmount = bill.getCashOut(); // Entire pending amount.
+                paymentAmount = bill.getCashOut();
             } else {
                 try {
                     paymentAmount = Double.parseDouble(paymentInput);
@@ -214,24 +210,21 @@ public class InventoryController {
                     return;
                 }
             }
-
-            // Calculate new values.
             double newCashIn = bill.getCashIn() + paymentAmount;
             double newCashOut = bill.getCashOut() - paymentAmount;
-            if (newCashOut < 0) newCashOut = 0;
-
-            // Update the bill in the database.
+            if (newCashOut < 0) {
+                newCashOut = 0;
+            }
             updateBillPayment(bill.getBillid(), newCashIn, newCashOut);
-
-            // Update the local Bill object.
             bill.setCashIn(newCashIn);
             bill.setCashOut(newCashOut);
             billsTable.refresh();
+            updateSummary();
         }
     }
 
     private void updateBillPayment(long billid, double newCashIn, double newCashOut) {
-        String sql = "UPDATE bills SET cash_in = ?, cash_out = ?, updated=CURRENT_TIMESTAMP WHERE billid = ?";
+        String sql = "UPDATE bills SET cash_in = ?, cash_out = ?, updated = CURRENT_TIMESTAMP WHERE billid = ?";
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setDouble(1, newCashIn);
@@ -241,6 +234,20 @@ public class InventoryController {
         } catch (SQLException e) {
             showAlert("Database Error", "Error updating bill payment: " + e.getMessage(), Alert.AlertType.ERROR);
         }
+    }
+
+    private void updateSummary() {
+        double sumCashIn = 0, sumCashOut = 0, sumDiscount = 0, sumTotal = 0;
+        for (Bill bill : billsList) {
+            sumCashIn += bill.getCashIn();
+            sumCashOut += bill.getCashOut();
+            sumDiscount += bill.getDiscount();
+            sumTotal += bill.getTotal();
+        }
+        amountReceivedLabel.setText(String.format("%.2f", sumCashIn));
+        amountPendingLabel.setText(String.format("%.2f", sumCashOut));
+        discountSummaryLabel.setText(String.format("%.2f", sumDiscount));
+        totalSummaryLabel.setText(String.format("%.2f", sumTotal));
     }
 
     private void showAlert(String title, String message, Alert.AlertType type) {

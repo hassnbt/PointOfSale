@@ -52,8 +52,10 @@
             <Label text="POS Billing System" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
             <HBox spacing="10">
                 <TextField fx:id="searchField" promptText="Search Product..." style="-fx-pref-width: 200px;"/>
-                <!-- Field to input quantity -->
                 <TextField fx:id="quantityField" promptText="Quantity" style="-fx-pref-width: 100px;"/>
+                <CheckBox fx:id="manualPriceCheckBox" text="Manual Price" onAction="#toggleManualPriceField"/>
+                <!-- New Field for Manual Price (Initially Hidden) -->
+                <TextField fx:id="manualPriceField" promptText="Price" style="-fx-pref-width: 100px;"/>
                 <Button text="Add" fx:id="addButton" onAction="#handleAddProduct"
                         style="-fx-background-color: #2ECC71; -fx-text-fill: white; -fx-font-weight: bold;"/>
             </HBox>
