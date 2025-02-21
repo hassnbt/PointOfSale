@@ -16,7 +16,7 @@ public class Bill {
     private double total;
     private double discount;
     private LocalDateTime updated;
-
+private long areaid;
     public Bill(long billid, double cashIn, double cashOut, LocalDateTime created, boolean isActive, String name, String note, double total, double discount) {
         this.billid = billid;
         this.cashIn = cashIn;
@@ -39,6 +39,19 @@ public class Bill {
         this.note = note;
         this.total = total;
         this.discount = discount;
+
+    }
+    public Bill(long billid, double cashIn, double cashOut, LocalDateTime created, boolean isActive, String name, String note, double total, double discount,String showdate,long areaid) {
+        this.billid = billid;
+        this.cashIn = cashIn;
+        this.cashOut = cashOut;
+        this.created = created;
+        this.isActive = isActive;
+        this.name = name;
+        this.note = note;
+        this.total = total;
+        this.discount = discount;
+        this.areaid=areaid;
 
     }
 
@@ -77,5 +90,13 @@ public class Bill {
 
     public void setUpdated(LocalDateTime updated) {
         this.updated = updated;
+    }
+
+    public long getAreaid() {
+        return areaid;
+    }
+
+    public void setAreaid(long areaid) {
+        this.areaid = areaid;
     }
 }

@@ -32,6 +32,7 @@ import java.util.*;
 public class InventoryController {
 
     public Button homebutton;
+    public CheckBox saleman;
     @FXML private DatePicker startDatePicker;
     @FXML private DatePicker endDatePicker;
     @FXML private TextField searchField;
@@ -150,9 +151,17 @@ public class InventoryController {
         if (filterCashOut) {
             sql.append("AND cash_out > 0 ");
         }
+        if(saleman.isSelected())
+        {
+
+            sql.append("AND areaid is not null ");
+
+
+        }
         if (orderby.isSelected()) {
             sql.append("ORDER BY created ASC ");
         }
+
 
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
              PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {

@@ -43,6 +43,8 @@
                 <Label text="Search:"/>
                 <TextField fx:id="searchField" promptText="Buyer name"/>
                 <CheckBox fx:id="orderby" text="Old Bills"/>
+                <CheckBox fx:id="saleman" text="Saleman"/>
+
                 <CheckBox fx:id="cashOutFilterCheckBox" text="Amount Pending"/>
                 <Button text="Filter" onAction="#handleFilter"/>
             </HBox>

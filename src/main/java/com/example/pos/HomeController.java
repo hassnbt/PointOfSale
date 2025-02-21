@@ -16,8 +16,10 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import models.Area;
 import models.Product;
 
 import java.io.IOException;
@@ -109,6 +111,8 @@ public class HomeController {
     }
     @FXML
     public void initialize() {
+        manualPriceField.setVisible(false);
+
         // Load available products from the DB using correct column names
         final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
         final String USER = "sysdba";
@@ -307,7 +311,6 @@ public class HomeController {
     }
 
     @FXML
-
     private void handleCheckout(ActionEvent event) {
         if (cart.isEmpty()) {
             showAlert("Error", "Cart is empty!", Alert.AlertType.ERROR);
@@ -319,13 +322,18 @@ public class HomeController {
         dialog.setTitle("Checkout");
         dialog.setHeaderText("Enter Checkout Details");
 
+        // Use OK and Cancel buttons.
         ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
+        // Create a checkbox to select Area Checkout mode.
+        CheckBox alternateCheckoutCheckBox = new CheckBox("Area Checkout");
+
+        // NORMAL CHECKOUT GRID (if not alternate)
+        GridPane normalGrid = new GridPane();
+        normalGrid.setHgap(10);
+        normalGrid.setVgap(10);
+        normalGrid.setPadding(new Insets(20, 150, 10, 10));
 
         TextField amountReceivedField = new TextField();
         amountReceivedField.setPromptText("Amount Received");
@@ -344,28 +352,91 @@ public class HomeController {
             }
         });
 
-        grid.add(new Label("Amount Received:"), 0, 0);
-        grid.add(amountReceivedField, 1, 0);
-        grid.add(fullAmountCheckBox, 2, 0);
-        grid.add(new Label("Buyer Name:"), 0, 1);
-        grid.add(buyerNameField, 1, 1);
-        grid.add(new Label("Notes:"), 0, 2);
-        grid.add(notesField, 1, 2);
-        grid.add(new Label("Discount:"), 0, 3);
-        grid.add(discountField, 1, 3);
+        normalGrid.add(new Label("Amount Received:"), 0, 0);
+        normalGrid.add(amountReceivedField, 1, 0);
+        normalGrid.add(fullAmountCheckBox, 2, 0);
+        normalGrid.add(new Label("Buyer Name:"), 0, 1);
+        normalGrid.add(buyerNameField, 1, 1);
+        normalGrid.add(new Label("Notes:"), 0, 2);
+        normalGrid.add(notesField, 1, 2);
+        normalGrid.add(new Label("Discount:"), 0, 3);
+        normalGrid.add(discountField, 1, 3);
 
-        dialog.getDialogPane().setContent(grid);
+        // ALTERNATE CHECKOUT GRID: Two ComboBoxes – one for Area (from DB) and one for Buyer (hard-coded).
+        GridPane alternateGrid = new GridPane();
+        alternateGrid.setHgap(10);
+        alternateGrid.setVgap(10);
+        alternateGrid.setPadding(new Insets(20, 150, 10, 10));
 
+        // ComboBox for Area – load from DB using a helper method.
+        ComboBox<Area> areaComboBox = new ComboBox<>();
+        ObservableList<Area> areas = getAreasFromDB();
+        areaComboBox.setItems(areas);
+        areaComboBox.setPromptText("Select Area");
+
+        // ComboBox for Buyer Name (hard-coded values).
+        ComboBox<String> nameComboBox = new ComboBox<>();
+        nameComboBox.setItems(FXCollections.observableArrayList("ali", "sadiq"));
+        nameComboBox.setPromptText("Select Buyer");
+
+        alternateGrid.add(new Label("Select Area:"), 0, 0);
+        alternateGrid.add(areaComboBox, 1, 0);
+        alternateGrid.add(new Label("Select Buyer:"), 0, 1);
+        alternateGrid.add(nameComboBox, 1, 1);
+
+        // Container that holds the alternate checkout checkbox and one of the grids.
+        VBox contentBox = new VBox(10);
+        contentBox.setPadding(new Insets(10));
+        contentBox.getChildren().add(alternateCheckoutCheckBox);
+        // Default mode is normal mode.
+        contentBox.getChildren().add(normalGrid);
+
+        // Switch between normal and alternate grids based on the checkbox.
+        alternateCheckoutCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            contentBox.getChildren().remove(normalGrid);
+            contentBox.getChildren().remove(alternateGrid);
+            if (newVal) {
+                contentBox.getChildren().add(alternateGrid);
+            } else {
+                contentBox.getChildren().add(normalGrid);
+            }
+        });
+
+        dialog.getDialogPane().setContent(contentBox);
+
+        // Convert the dialog result.
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == okButtonType) {
                 Map<String, String> result = new HashMap<>();
-                result.put("buyerName", buyerNameField.getText());
-                result.put("notes", notesField.getText());
-                result.put("discount", discountField.getText());
-                if (fullAmountCheckBox.isSelected()) {
-                    result.put("amountReceived", "ALL");
+                if (alternateCheckoutCheckBox.isSelected()) {
+                    // Alternate (Area) mode: amountReceived forced to zero.
+                    result.put("amountReceived", "0");
+                    // Get buyer name from the name combo box.
+                    String selectedBuyer = nameComboBox.getValue();
+                    if (selectedBuyer == null || selectedBuyer.trim().isEmpty()) {
+                        return null; // prevent closing if not selected.
+                    }
+                    result.put("buyerName", selectedBuyer);
+                    // Get area id from the area combo box.
+                    Area selectedArea = areaComboBox.getValue();
+                    if (selectedArea == null) {
+                        return null;
+                    }
+                    result.put("areaid", String.valueOf(selectedArea.getAreaid()));
+                    // For alternate mode, discount and notes default to zero/empty.
+                    result.put("discount", "0");
+                    result.put("notes", "");
                 } else {
-                    result.put("amountReceived", amountReceivedField.getText());
+                    // Normal mode: use entered values.
+                    result.put("buyerName", buyerNameField.getText());
+                    result.put("notes", notesField.getText());
+                    result.put("discount", discountField.getText());
+                    if (fullAmountCheckBox.isSelected()) {
+                        result.put("amountReceived", "ALL");
+                    } else {
+                        result.put("amountReceived", amountReceivedField.getText());
+                    }
+                    result.put("areaid", null);
                 }
                 return result;
             }
@@ -393,15 +464,18 @@ public class HomeController {
                 double cashOut = total - amountReceived - discount;
                 String buyerName = checkoutData.get("buyerName");
                 String notes = checkoutData.get("notes");
+                // Retrieve area id if provided.
+                String areaIdStr = checkoutData.get("areaid");
+                Integer areaId = (areaIdStr != null && !areaIdStr.trim().isEmpty()) ? Integer.parseInt(areaIdStr) : null;
 
                 final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
                 final String USER = "sysdba";
                 final String PASSWORD = "123456";
 
-                // Insert the bill record and retrieve the generated bill id.
+                // Insert the bill record (include areaid column).
                 int billId = -1;
-                String billSql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total) " +
-                        "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?)";
+                String billSql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total, areaid) " +
+                        "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                      PreparedStatement billPstmt = conn.prepareStatement(billSql, Statement.RETURN_GENERATED_KEYS)) {
                     billPstmt.setDouble(1, amountReceived);
@@ -410,6 +484,11 @@ public class HomeController {
                     billPstmt.setString(4, buyerName);
                     billPstmt.setString(5, notes);
                     billPstmt.setDouble(6, total);
+                    if (areaId != null) {
+                        billPstmt.setInt(7, areaId);
+                    } else {
+                        billPstmt.setNull(7, Types.INTEGER);
+                    }
                     billPstmt.executeUpdate();
 
                     ResultSet generatedKeys = billPstmt.getGeneratedKeys();
@@ -423,7 +502,7 @@ public class HomeController {
                     return;
                 }
 
-                // Insert each cart item into the CART table with the retrieved bill id.
+                // Insert each cart item into the CART table as usual.
                 String cartSql = "INSERT INTO CART (bill_id, product_id, name, price, quantity, original_price, created_on, created_by, is_active, quantity_per_unit) " +
                         "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
@@ -435,10 +514,8 @@ public class HomeController {
                         cartPstmt.setDouble(4, p.getPrice());
                         cartPstmt.setInt(5, p.getQuantity());
                         cartPstmt.setDouble(6, p.getOriginalPrice());
-                        // Assuming "created_by" is stored in p.getCreatedBy(), or use a default value.
                         cartPstmt.setString(7, p.getCreatedBy() != null ? p.getCreatedBy() : "User");
                         cartPstmt.setBoolean(8, p.isActive());
-                        // Since quantity per unit is not used, set to 0.
                         cartPstmt.setInt(9, p.getQuantityPerUnit());
                         cartPstmt.executeUpdate();
                     }
@@ -446,18 +523,21 @@ public class HomeController {
                     showAlert("Database Error", "Error inserting cart items: " + e.getMessage(), Alert.AlertType.ERROR);
                 }
 
-                // Update product quantities in the database by subtracting the purchased quantity.
-                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-                    String updateSql = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
-                    try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
-                        for (Product p : cart) {
-                            pstmt.setInt(1, p.getQuantity());
-                            pstmt.setInt(2, p.getId());
-                            pstmt.executeUpdate();
+                // In alternate (Area Checkout) mode, we do not update the product table.
+                if (checkoutData.get("areaid") == null) {
+                    // Normal mode: update product quantities.
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String updateSql = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
+                        try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                            for (Product p : cart) {
+                                pstmt.setInt(1, p.getQuantity());
+                                pstmt.setInt(2, p.getId());
+                                pstmt.executeUpdate();
+                            }
                         }
+                    } catch (SQLException e) {
+                        showAlert("Database Error", "Error updating product quantities: " + e.getMessage(), Alert.AlertType.ERROR);
                     }
-                } catch (SQLException e) {
-                    showAlert("Database Error", "Error updating product quantities: " + e.getMessage(), Alert.AlertType.ERROR);
                 }
 
                 showAlert("Checkout Successful", "Total Amount: " + totalAmountLabel.getText(), Alert.AlertType.INFORMATION);
@@ -470,6 +550,26 @@ public class HomeController {
                 showAlert("Database Error", "Error inserting bill: " + e.getMessage(), Alert.AlertType.ERROR);
             }
         }
+    }
+
+    private ObservableList<Area> getAreasFromDB() {
+        ObservableList<Area> areaList = FXCollections.observableArrayList();
+        final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+        final String USER = "sysdba";
+        final String PASSWORD = "123456";
+        String query = "SELECT areaid, name FROM areas WHERE isactive = TRUE";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                long id = rs.getLong("areaid");
+                String name = rs.getString("name");
+                areaList.add(new Area(id, name));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return areaList;
     }
 
     private void showAlert(String title, String message, Alert.AlertType type) {
