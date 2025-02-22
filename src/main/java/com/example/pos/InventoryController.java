@@ -133,7 +133,7 @@ public class InventoryController {
 
     private void loadBills(LocalDate startDate, LocalDate endDate, String searchText, boolean filterCashOut) {
         billsList.clear();
-        StringBuilder sql = new StringBuilder("SELECT billid, cash_in, cash_out, created, is_active, name, note, total, discount FROM bills WHERE 1=1 ");
+        StringBuilder sql = new StringBuilder("SELECT billid, cash_in, cash_out, created, is_active, name, note, total, discount,areaid FROM bills WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
 
         if (startDate != null) {
@@ -180,8 +180,9 @@ public class InventoryController {
                     String note = rs.getString("note");
                     double total = rs.getDouble("total");
                     double discount = rs.getDouble("discount");
+                    long areaid = rs.getLong("areaid");
 
-                    Bill bill = new Bill(billid, cashIn, cashOut, created, isActive, name, note, total, discount);
+                    Bill bill = new Bill(billid, cashIn, cashOut, created, isActive, name, note, total, discount,areaid);
                     billsList.add(bill);
                 }
             }
@@ -290,13 +291,34 @@ public class InventoryController {
             updateSummary();
         }
     }
-
+    Label grandTotalLabel = new Label();
     private void showBillDetails(long billId) {
         Dialog<Void> detailsDialog = new Dialog<>();
         detailsDialog.setTitle("Bill Details for Bill ID: " + billId);
         detailsDialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        // Create a TableView to display product details.
+        // First, determine if this bill has an area id.
+        Long areaId = null;
+        final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+        final String USER = "sysdba";
+        final String PASSWORD = "123456";
+        String billQuery = "SELECT areaid FROM bills WHERE billid = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(billQuery)) {
+            pstmt.setLong(1, billId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    areaId = rs.getLong("areaid");
+                    if (rs.wasNull()) {
+                        areaId = null;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            showAlert("Database Error", "Error checking bill area: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
+
+        // Create a TableView to display cart product details.
         TableView<Product> detailsTable = new TableView<>();
 
         TableColumn<Product, Integer> productIdCol = new TableColumn<>("Product ID");
@@ -317,30 +339,47 @@ public class InventoryController {
         TableColumn<Product, Double> totalCol = new TableColumn<>("Total");
         totalCol.setCellValueFactory(cellData -> {
             Product p = cellData.getValue();
-            // Look up the corresponding base product to get its quantity per unit from the product table.
             Product baseProduct = availableProducts.values().stream()
                     .filter(prod -> prod.getId() == p.getId())
                     .findFirst()
                     .orElse(p); // fallback to p if not found
+            //double packagePrice = p.getPrice();
+            // Here we assume unit price is computed from the package price divided by quantityPerUnit.
             double packagePrice = p.getPrice();
-            // Calculate the unit price using the base product's quantity per unit.
-            double unitPrice = packagePrice / baseProduct.getQuantityPerUnit();
-            // Calculate the total as (full packages * package price) plus (loose units * unit price).
+            double unitPrice = (p.getQuantityPerUnit() > 0) ? packagePrice / baseProduct.getQuantityPerUnit() : 0;
             double total = p.getQuantity() * packagePrice + p.getQuantityPerUnit() * unitPrice;
             return new SimpleDoubleProperty(total).asObject();
         });
 
-
         detailsTable.getColumns().addAll(productIdCol, nameCol, priceCol, quantityCol, quantityPerUnitCol, totalCol);
+
+        // If the bill has an area (area checkout), add an "Edit" column.
+        if (areaId != null) {
+            TableColumn<Product, Void> editCol = new TableColumn<>("Edit");
+            editCol.setCellFactory(col -> new TableCell<Product, Void>() {
+                private final Button editBtn = new Button("Edit");
+                {
+                    editBtn.setOnAction(e -> {
+                        Product p = getTableView().getItems().get(getIndex());
+                        editCartItem(p, billId);
+                        // Refresh the table after editing.
+                        detailsTable.refresh();
+                    });
+                }
+                @Override
+                protected void updateItem(Void item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setGraphic(empty ? null : editBtn);
+                }
+            });
+            detailsTable.getColumns().add(editCol);
+        }
 
         ObservableList<Product> detailsList = FXCollections.observableArrayList();
 
-        final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
-        final String USER = "sysdba";
-        final String PASSWORD = "123456";
+        // Load cart items for this bill.
         String query = "SELECT product_id, name, price, quantity, created_on, created_by, is_active, quantity_per_unit " +
                 "FROM CART WHERE bill_id = ?";
-
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setLong(1, billId);
@@ -354,7 +393,6 @@ public class InventoryController {
                     boolean isActive = rs.getBoolean("is_active");
                     int quantityPerUnit = rs.getInt("quantity_per_unit");
                     LocalDateTime createdOn = rs.getTimestamp("created_on").toLocalDateTime();
-
                     // Note: Original price is not used here.
                     Product product = new Product(productId, name, price, quantity, createdOn, createdBy, isActive, quantityPerUnit, 0);
                     detailsList.add(product);
@@ -367,28 +405,164 @@ public class InventoryController {
 
         detailsTable.setItems(detailsList);
 
-        // Compute grand total across all cart items
+        // Compute grand total across all cart items.
         double grandTotal = detailsList.stream()
                 .mapToDouble(p -> {
-                    // Look up the corresponding base product for the correct quantity per unit
                     Product baseProduct = availableProducts.values().stream()
                             .filter(prod -> prod.getId() == p.getId())
                             .findFirst()
                             .orElse(p); // fallback to p if not found
+                    //double packagePrice = p.getPrice();
                     double packagePrice = p.getPrice();
-                    double unitPrice = packagePrice / baseProduct.getQuantityPerUnit();
-                    // Calculate line total: full packages + loose units cost
+                    double unitPrice = (p.getQuantityPerUnit() > 0) ? packagePrice / baseProduct.getQuantityPerUnit() : 0;
                     return p.getQuantity() * packagePrice + p.getQuantityPerUnit() * unitPrice;
                 })
                 .sum();
 
+        grandTotalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-        Label grandTotalLabel = new Label(String.format("Grand Total: Rs%.2f", grandTotal));
+        grandTotalLabel.setText(String.format("Grand Total: Rs%.2f", grandTotal));
+
         VBox content = new VBox(10, detailsTable, grandTotalLabel);
         content.setPadding(new Insets(10));
 
         detailsDialog.getDialogPane().setContent(content);
         detailsDialog.showAndWait();
+    }
+
+    /**
+     * Opens a dialog to edit a cart item (quantity and quantity per unit) for a given bill.
+     */
+    private void editCartItem(Product p, long billId) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Edit Cart Item");
+        dialog.setHeaderText("Edit item: " + p.getName());
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField quantityField = new TextField(String.valueOf(p.getQuantity()));
+        TextField quantityPerUnitField = new TextField(String.valueOf(p.getQuantityPerUnit()));
+
+        grid.add(new Label("Quantity:"), 0, 0);
+        grid.add(quantityField, 1, 0);
+        grid.add(new Label("Quantity per Unit:"), 0, 1);
+        grid.add(quantityPerUnitField, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                int newQuantity = Integer.parseInt(quantityField.getText());
+                int newQuantityPerUnit = Integer.parseInt(quantityPerUnitField.getText());
+                // Update the product object.
+                p.setQuantity(newQuantity);
+                p.setQuantityPerUnit(newQuantityPerUnit);
+                // Update the record in the CART table.
+                final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+                final String USER = "sysdba";
+                final String PASSWORD = "123456";
+                String updateCartSql = "UPDATE CART SET quantity = ?, quantity_per_unit = ?, is_active = TRUE WHERE product_id = ? AND bill_id = ?";
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                     PreparedStatement pstmt = conn.prepareStatement(updateCartSql)) {
+                    pstmt.setInt(1, newQuantity);
+                    pstmt.setInt(2, newQuantityPerUnit);
+                    pstmt.setInt(3, p.getId());
+                    pstmt.setLong(4, billId);
+                    pstmt.executeUpdate();
+                }
+                // After editing the cart item, recalc the grand total and update the bill.
+                updateBillAfterCartEdit(billId);
+            } catch (NumberFormatException e) {
+                showAlert("Invalid Input", "Please enter valid numeric values for quantity.", Alert.AlertType.ERROR);
+            } catch (SQLException e) {
+                showAlert("Database Error", "Error updating cart item: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+    /**
+     * Recalculates the grand total from the CART records for the given bill,
+     * then updates the corresponding bill record with the new total and cash_out.
+     */
+    private void updateBillAfterCartEdit(long billId) {
+        final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+        final String USER = "sysdba";
+        final String PASSWORD = "123456";
+        double newTotal = 0;
+        String query = "SELECT product_id, price, quantity, quantity_per_unit FROM CART WHERE bill_id = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setLong(1, billId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int prodId = rs.getInt("product_id");
+                    double packagePrice = rs.getDouble("price");
+                    int qty = rs.getInt("quantity");
+                    int loose = rs.getInt("quantity_per_unit");
+                    // Look up the base product to get its standard quantity per unit.
+                    Product baseProduct = availableProducts.values().stream()
+                            .filter(prod -> prod.getId() == prodId)
+                            .findFirst()
+                            .orElse(null);
+                    double unitPrice = 0;
+                    if (baseProduct != null && baseProduct.getQuantityPerUnit() > 0) {
+                        unitPrice = packagePrice / baseProduct.getQuantityPerUnit();
+                    }
+                    double lineTotal = qty * packagePrice + loose * unitPrice;
+                    newTotal += lineTotal;
+                }
+
+//                Label grandTotalLabel = new Label(String.format("Grand Total: Rs%.2f", newTotal));
+//                grandTotalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+                grandTotalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
+                grandTotalLabel.setText(String.format("Grand Total: Rs%.2f", newTotal));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        // Retrieve current cash_in from the bill record.
+        double currentCashIn = 0;
+        String query2 = "SELECT cash_in FROM bills WHERE billid = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(query2)) {
+            pstmt.setLong(1, billId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    currentCashIn = rs.getDouble("cash_in");
+                }
+            }
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        double newCashOut = newTotal - currentCashIn;
+        // Update the bill record with the new total and cash_out.
+        String updateBillSql = "UPDATE bills SET total = ?, cash_out = ?, updated = CURRENT_TIMESTAMP WHERE billid = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(updateBillSql)) {
+            pstmt.setDouble(1, newTotal);
+            pstmt.setDouble(2, newCashOut);
+            pstmt.setLong(3, billId);
+            pstmt.executeUpdate();
+
+            billsTable.refresh();
+            updateSummary();
+        }
+
+
+        catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        //billsTable.refresh();
     }
 
     private void updateBillPayment(long billid, double newCashIn, double newCashOut) {

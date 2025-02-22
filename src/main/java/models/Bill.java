@@ -29,6 +29,19 @@ private long areaid;
         this.discount = discount;
 
     }
+    public Bill(long billid, double cashIn, double cashOut, LocalDateTime created, boolean isActive, String name, String note, double total, double discount,long areaid) {
+        this.billid = billid;
+        this.cashIn = cashIn;
+        this.cashOut = cashOut;
+        this.created = created;
+        this.isActive = isActive;
+        this.name = name;
+        this.note = note;
+        this.total = total;
+        this.discount = discount;
+        this.areaid=areaid;
+
+    }
     public Bill(long billid, double cashIn, double cashOut, LocalDateTime created, boolean isActive, String name, String note, double total, double discount,String showdate) {
         this.billid = billid;
         this.cashIn = cashIn;

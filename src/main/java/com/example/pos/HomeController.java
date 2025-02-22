@@ -515,7 +515,7 @@ public class HomeController {
                         cartPstmt.setInt(5, p.getQuantity());
                         cartPstmt.setDouble(6, p.getOriginalPrice());
                         cartPstmt.setString(7, p.getCreatedBy() != null ? p.getCreatedBy() : "User");
-                        cartPstmt.setBoolean(8, p.isActive());
+                        cartPstmt.setBoolean(8, checkoutData.get("areaid") == null);
                         cartPstmt.setInt(9, p.getQuantityPerUnit());
                         cartPstmt.executeUpdate();
                     }
@@ -524,21 +524,21 @@ public class HomeController {
                 }
 
                 // In alternate (Area Checkout) mode, we do not update the product table.
-                if (checkoutData.get("areaid") == null) {
-                    // Normal mode: update product quantities.
-                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-                        String updateSql = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
-                        try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
-                            for (Product p : cart) {
-                                pstmt.setInt(1, p.getQuantity());
-                                pstmt.setInt(2, p.getId());
-                                pstmt.executeUpdate();
-                            }
-                        }
-                    } catch (SQLException e) {
-                        showAlert("Database Error", "Error updating product quantities: " + e.getMessage(), Alert.AlertType.ERROR);
-                    }
-                }
+//                if (checkoutData.get("areaid") == null) {
+//                    // Normal mode: update product quantities.
+//                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+//                        String updateSql = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
+//                        try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+//                            for (Product p : cart) {
+//                                pstmt.setInt(1, p.getQuantity());
+//                                pstmt.setInt(2, p.getId());
+//                                pstmt.executeUpdate();
+//                            }
+//                        }
+//                    } catch (SQLException e) {
+//                        showAlert("Database Error", "Error updating product quantities: " + e.getMessage(), Alert.AlertType.ERROR);
+//                    }
+//                }
 
                 showAlert("Checkout Successful", "Total Amount: " + totalAmountLabel.getText(), Alert.AlertType.INFORMATION);
                 cart.clear();
