@@ -53,8 +53,27 @@
                     <TableColumn text="Original Price" fx:id="originalPriceColumn" />
                     <TableColumn text="Quantity" fx:id="quantityColumn" />
                     <TableColumn text="Quantity per Unit" fx:id="quantityPerUnitColumn" />
+                    <!-- New columns for totals -->
+                    <TableColumn text="Total (Price)" fx:id="totalPriceColumn" />
+                    <TableColumn text="Total (Original Price)" fx:id="totalOriginalPriceColumn" />
                 </columns>
             </TableView>
+
+            <!-- Summary Row Below Table -->
+            <HBox spacing="20" alignment="CENTER_RIGHT" style="-fx-background-color: #f0f0f0; -fx-padding: 10;">
+                <VBox alignment="CENTER">
+                    <Label text="Sum Total (Price)" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="sumTotalPriceLabel" text="0.00"/>
+                </VBox>
+                <VBox alignment="CENTER">
+                    <Label text="Sum Total (Original Price)" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="sumTotalOriginalPriceLabel" text="0.00"/>
+                </VBox>
+                <VBox alignment="CENTER">
+                    <Label text="Gross Profit" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="grossProfitLabel" text="0.00"/>
+                </VBox>
+            </HBox>
 
             <!-- Add Product Section -->
             <Label text="Add New Product" style="-fx-font-size: 16px; -fx-font-weight: bold;" />

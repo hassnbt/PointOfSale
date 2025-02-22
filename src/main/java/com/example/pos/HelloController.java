@@ -1,6 +1,7 @@
 package com.example.pos;
 
 import javafx.animation.FadeTransition;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -31,6 +32,7 @@ public class HelloController {
     @FXML public Button addProductButton;
     @FXML public Button deleteProductButton;
     @FXML public Button homeButton;
+    public Label grossProfitLabel;
 
     // Input fields for adding a product
     @FXML private TextField productNameField, priceField, originalPriceField, quantityField, quantityPerUnitField, searchField;
@@ -42,6 +44,9 @@ public class HelloController {
     @FXML private TableColumn<Product, Double> originalPriceColumn;
     @FXML private TableColumn<Product, Integer> quantityColumn;
     @FXML private TableColumn<Product, Integer> quantityPerUnitColumn;
+    // New columns for totals
+    @FXML private TableColumn<Product, Double> totalPriceColumn;
+    @FXML private TableColumn<Product, Double> totalOriginalPriceColumn;
 
     // Actions column for per-row buttons
     @FXML private TableColumn<Product, Void> actionsColumn;
@@ -49,6 +54,8 @@ public class HelloController {
     private ObservableList<Product> productList = FXCollections.observableArrayList();
     private FilteredList<Product> filteredList;
     private Connection conn;
+    @FXML private Label sumTotalPriceLabel;
+    @FXML private Label sumTotalOriginalPriceLabel;
 
     // Formatter for date strings if needed (not shown in the UI)
     private final DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -81,7 +88,35 @@ public class HelloController {
         originalPriceColumn.setCellValueFactory(new PropertyValueFactory<>("originalPrice"));
         quantityColumn.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         quantityPerUnitColumn.setCellValueFactory(new PropertyValueFactory<>("quantityPerUnit"));
+
+        // New column: Total (using Price)
+        totalPriceColumn.setCellValueFactory(cellData -> {
+            Product p = cellData.getValue();
+            double total = p.getQuantity() * p.getPrice();
+            return new SimpleDoubleProperty(total).asObject();
+        });
+
+        // New column: Total (using Original Price)
+        totalOriginalPriceColumn.setCellValueFactory(cellData -> {
+            Product p = cellData.getValue();
+            double total = p.getQuantity() * p.getOriginalPrice();
+            return new SimpleDoubleProperty(total).asObject();
+        });
     }
+    private void updateSummary() {
+        double sumTotalPrice = productList.stream()
+                .mapToDouble(p -> p.getQuantity() * p.getPrice())
+                .sum();
+        double sumTotalOriginalPrice = productList.stream()
+                .mapToDouble(p -> p.getQuantity() * p.getOriginalPrice())
+                .sum();
+        double grossProfit = sumTotalPrice - sumTotalOriginalPrice;
+
+        sumTotalPriceLabel.setText(String.format("%.2f", sumTotalPrice));
+        sumTotalOriginalPriceLabel.setText(String.format("%.2f", sumTotalOriginalPrice));
+        grossProfitLabel.setText(String.format("%.2f", grossProfit));
+    }
+
 
     private void setupActionsColumn() {
         actionsColumn.setCellFactory(col -> new TableCell<Product, Void>() {
@@ -171,6 +206,7 @@ public class HelloController {
         }
         filteredList = new FilteredList<>(productList, p -> true);
         productTable.setItems(filteredList);
+        updateSummary();
     }
 
     private void setupSearchFilter() {
