@@ -61,16 +61,6 @@ public class Product {
 
     @Override
     public String toString() {
-        return "Product{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", price=" + price +
-                ", quantity=" + quantity +
-                ", quantityPerUnit=" + quantityPerUnit +
-                ", createdOn=" + createdOn +
-                ", createdBy='" + createdBy + '\'' +
-                ", isActive=" + isActive +
-                ", originalPrice=" + originalPrice +
-                '}';
+        return name;
     }
 }

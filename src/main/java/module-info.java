@@ -11,6 +11,7 @@ module com.example.pos {
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
     requires java.sql;
+    requires java.desktop;
 
     exports com.example.pos;
     opens com.example.pos to javafx.fxml;

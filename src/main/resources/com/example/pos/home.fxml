@@ -7,21 +7,11 @@
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/21"
             fx:controller="com.example.pos.HomeController">
     <!-- Top Navigation Bar -->
-    <top>
-        <HBox spacing="15" style="-fx-background-color: #2C3E50; -fx-padding: 10px;">
-            <Button text="📦 Inventory" fx:id="inventoryButton" onAction="#handleInventoryButton"
-                    style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-            <Button text="🛒 Bills" fx:id="salesButton" onAction="#handleSalesButton"
-                    style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-            <Button text="📊 Reports" fx:id="reportsButton" onAction="#handleReportsButton"
-                    style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-            <Button text="🔙 Back" fx:id="backButton" onAction="#handleBackButton"
-                    style="-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-weight: bold;"/>
-        </HBox>
-    </top>
-
-    <!-- Left Cart Panel -->
     <left>
+        <fx:include source="nav.fxml"/>
+    </left>
+    <!-- Left Cart Panel -->
+    <center>
         <VBox spacing="10" style="-fx-background-color: #ecf0f1; -fx-padding: 10px; -fx-pref-width: 600px;">
             <Label text="Cart" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
             <TableView fx:id="cartTable" style="-fx-border-color: #34495E; -fx-pref-height: 400px;">
@@ -44,10 +34,10 @@
                         style="-fx-background-color: #F1C40F; -fx-text-fill: black; -fx-font-weight: bold;"/>
             </HBox>
         </VBox>
-    </left>
+    </center>
 
     <!-- Center Product Search/Add Panel -->
-    <center>
+    <right>
         <VBox spacing="10" style="-fx-padding: 20px;">
             <Label text="POS Billing System" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
             <HBox spacing="10">
@@ -62,5 +52,5 @@
             <!-- ListView of available products (filtered as you type) -->
             <ListView fx:id="availableProductsList" style="-fx-pref-height: 350px;"/>
         </VBox>
-    </center>
+    </right>
 </BorderPane>

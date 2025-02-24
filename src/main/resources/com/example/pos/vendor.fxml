@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.geometry.Pos?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.example.pos.VendorController"
+            prefWidth="1000" prefHeight="600">
+
+    <!-- Left: Navigation Bar -->
+    <left>
+        <fx:include source="nav.fxml"/>
+    </left>
+
+    <!-- Top: Title -->
+    <top>
+        <Label text="Vendor Management" style="-fx-font-size: 24px;" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+        </Label>
+    </top>
+
+    <!-- Center: Vendor Table -->
+    <center>
+        <VBox spacing="10" alignment="TOP_LEFT">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <TableView fx:id="vendorTable" prefHeight="400">
+                <columns>
+                    <TableColumn text="ID" fx:id="vidColumn" prefWidth="50"/>
+                    <TableColumn text="Name" fx:id="vendorNameColumn" prefWidth="150"/>
+                    <TableColumn text="Phone No" fx:id="phoneNoColumn" prefWidth="150"/>
+                    <TableColumn text="Address" fx:id="addressColumn" prefWidth="200"/>
+                    <TableColumn text="Created On" fx:id="createdOnColumn" prefWidth="150"/>
+                    <TableColumn text="Active" fx:id="activeColumn" prefWidth="70"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+
+    <!-- Right: Form to Add New Vendor -->
+    <right>
+        <VBox spacing="10" alignment="TOP_LEFT">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <Label text="Add New Vendor" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <GridPane hgap="10" vgap="10">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="100"/>
+                    <ColumnConstraints minWidth="200"/>
+                </columnConstraints>
+                <Label text="Name:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <TextField fx:id="nameField" GridPane.rowIndex="0" GridPane.columnIndex="1" promptText="Enter vendor name"/>
+                <Label text="Phone No:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <TextField fx:id="phoneField" GridPane.rowIndex="1" GridPane.columnIndex="1" promptText="Enter phone number"/>
+                <Label text="Address:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                <TextField fx:id="addressField" GridPane.rowIndex="2" GridPane.columnIndex="1" promptText="Enter address"/>
+                <Label text="Active:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                <CheckBox fx:id="activeCheckBox" GridPane.rowIndex="3" GridPane.columnIndex="1" selected="true"/>
+            </GridPane>
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="Add Vendor" fx:id="addVendorButton" onAction="#handleAddVendor"/>
+            </HBox>
+        </VBox>
+    </right>
+</BorderPane>
+
