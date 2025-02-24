@@ -19,7 +19,7 @@ import models.Product;
 import models.factoryvendor;
 import models.vendorbill;
 import models.vendorcart;
-
+import models.payementdetails;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -171,16 +171,31 @@ public class FactoryVendorController {
         modalStage.initModality(Modality.APPLICATION_MODAL);
         modalStage.setTitle("Bills for " + vendor.getName());
 
+        // Create an HBox to hold all three buttons in one row
+        HBox buttonRow = new HBox(10);
+        buttonRow.setPadding(new Insets(10));
+
         // "Add Bill" button with styling
         Button addBillButton = new Button("Add Bill");
         addBillButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; " +
                 "-fx-font-size: 14px; -fx-padding: 8 15 8 15; -fx-background-radius: 5px;");
         addBillButton.setOnAction(e -> openAddBillModal(vendor));
 
+        // "Add Amount" button with styling
         Button paybill = new Button("Add Amount");
         paybill.setStyle("-fx-background-color: #0000FF; -fx-text-fill: white; " +
                 "-fx-font-size: 14px; -fx-padding: 8 15 8 15; -fx-background-radius: 5px;");
         paybill.setOnAction(e -> Addamount(vendor));
+
+        // Dummy button with styling
+        Button dummyButton = new Button("Show Payment Details");
+        dummyButton.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white; " +
+                "-fx-font-size: 14px; -fx-padding: 8 15 8 15; -fx-background-radius: 5px;");
+        dummyButton.setOnAction(e -> showPaymentDetails(vendor));
+
+        // Add all three buttons to the buttonRow HBox
+        buttonRow.getChildren().addAll(addBillButton, paybill, dummyButton);
+
         // Table for vendor bills with some styling
         TableView<vendorbill> billTable = new TableView<>();
         billTable.setStyle("-fx-background-color: white; -fx-font-size: 13px;");
@@ -254,16 +269,48 @@ public class FactoryVendorController {
             showAlert("Database Error", "Error loading vendor bills: " + e.getMessage());
             e.printStackTrace();
         }
-
         billTable.setItems(billList);
+
+        // Calculate total of all bills (sum of the Total field)
+        double totalBills = billList.stream().mapToDouble(b -> b.getTotal()).sum();
+
+        // Query FACTOR_PAID to get total paid amount for this vendor
+        double totalPaid = 0.0;
+        String paidSql = "SELECT COALESCE(SUM(AMOUNT_PAID), 0) AS totalPaid FROM FACTOR_PAID WHERE FVID = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(paidSql)) {
+            pstmt.setLong(1, vendor.getId());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    totalPaid = rs.getDouble("totalPaid");
+                }
+            }
+        } catch (SQLException ex) {
+            showAlert("Database Error", "Error calculating total paid: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        double remaining = totalBills - totalPaid;
+
+        // Create summary labels with styling
+        Label totalBillsLabel = new Label("Total Bills: " + totalBills);
+        Label totalPaidLabel = new Label("Total Paid: " + totalPaid);
+        Label remainingLabel = new Label("Remaining: " + remaining);
+        totalBillsLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2E7D32;");
+        totalPaidLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1565C0;");
+        remainingLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #C62828;");
+
+        VBox summaryBox = new VBox(5);
+        summaryBox.getChildren().addAll(totalBillsLabel, totalPaidLabel, remainingLabel);
+        summaryBox.setStyle("-fx-background-color: #E0F2F1; -fx-padding: 10; -fx-border-color: #B2DFDB; " +
+                "-fx-border-width: 2px; -fx-border-radius: 5px; -fx-background-radius: 5px;");
 
         VBox vbox = new VBox(10);
         vbox.setPadding(new Insets(10));
-        vbox.setStyle("-fx-background-color: #f5f5f5; -fx-border-color: #cccccc; " +
-                "-fx-border-width: 1px; -fx-border-radius: 5px;");
-        vbox.getChildren().addAll(addBillButton,paybill, billTable);
+        vbox.setStyle("-fx-background-color: #f5f5f5; -fx-border-color: #cccccc; -fx-border-width: 1px; -fx-border-radius: 5px;");
+        // Place the buttonRow, then the table, then the summary box
+        vbox.getChildren().addAll(buttonRow, billTable, summaryBox);
 
-        Scene scene = new Scene(vbox, 800, 400);
+        Scene scene = new Scene(vbox, 800, 500);
         modalStage.setScene(scene);
         modalStage.showAndWait();
     }
@@ -415,17 +462,14 @@ public class FactoryVendorController {
         productNameColumn.setCellValueFactory(cellData ->
                 new SimpleStringProperty(cellData.getValue().getName()));
         productNameColumn.setPrefWidth(250);
+
         TableColumn<vendorcart, Integer> billQuantityColumn = new TableColumn<>("Quantity");
         billQuantityColumn.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         billQuantityColumn.setPrefWidth(100);
+
         TableColumn<vendorcart, Double> billPriceColumn = new TableColumn<>("Price");
         billPriceColumn.setCellValueFactory(new PropertyValueFactory<>("price"));
         billPriceColumn.setPrefWidth(150);
-
-        billItemTable.getColumns().addAll(productNameColumn, billQuantityColumn, billPriceColumn);
-        billItemTable.setItems(billItemList);
-
-        // --- Label to display total ---
         Label totalLabel = new Label("Total: 0.00");
         totalLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
@@ -437,6 +481,31 @@ public class FactoryVendorController {
             }
             totalLabel.setText("Total: " + total);
         };
+        // --- Remove Button Column ---
+        TableColumn<vendorcart, Void> removeColumn = new TableColumn<>("Action");
+        removeColumn.setPrefWidth(100);
+        removeColumn.setCellFactory(col -> new TableCell<vendorcart, Void>() {
+            private final Button removeButton = new Button("Remove");
+            {
+                removeButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-font-size: 12px; -fx-background-radius: 5px;");
+                removeButton.setOnAction(event -> {
+                    vendorcart data = getTableView().getItems().get(getIndex());
+                    getTableView().getItems().remove(data);
+                    updateTotal.run();
+                });
+            }
+            @Override
+            public void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : removeButton);
+            }
+        });
+
+        billItemTable.getColumns().addAll(productNameColumn, billQuantityColumn, billPriceColumn, removeColumn);
+        billItemTable.setItems(billItemList);
+
+        // --- Label to display total ---
+
 
         // --- "Add Product" button action ---
         addProductButton.setOnAction(ev -> {
@@ -528,12 +597,30 @@ public class FactoryVendorController {
                     pstmt.addBatch();
                 }
                 pstmt.executeBatch();
-                showAlert("Success", "Bill submitted successfully.");
-                addBillStage.close();
             } catch (SQLException ex) {
                 showAlert("Database Error", "Error submitting bill: " + ex.getMessage());
                 ex.printStackTrace();
+                return;
             }
+
+            // --- Update product table: add bill quantity to existing product quantity ---
+            String updateSql = "UPDATE PRODUCTS SET QUANTITY = QUANTITY + ? WHERE ID = ?";
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement updatePstmt = conn.prepareStatement(updateSql)) {
+                for (vendorcart item : billItemList) {
+                    updatePstmt.setInt(1, item.getQuantity());
+                    updatePstmt.setLong(2, item.getProductId());
+                    updatePstmt.addBatch();
+                }
+                updatePstmt.executeBatch();
+            } catch (SQLException ex) {
+                showAlert("Database Error", "Error updating product quantities: " + ex.getMessage());
+                ex.printStackTrace();
+                return;
+            }
+
+            showAlert("Success", "Bill submitted successfully and product quantities updated.");
+            addBillStage.close();
         });
 
         Button cancelButton = new Button("Cancel");
@@ -553,7 +640,6 @@ public class FactoryVendorController {
         addBillStage.setScene(scene);
         addBillStage.showAndWait();
     }
-
 
     private void Addamount(factoryvendor vendor) {
         Stage payStage = new Stage();
@@ -615,6 +701,75 @@ public class FactoryVendorController {
                 ex.printStackTrace();
             }
         });
+    }
+
+
+    private void showPaymentDetails(factoryvendor vendor) {
+        Stage paymentStage = new Stage();
+        paymentStage.initModality(Modality.APPLICATION_MODAL);
+        paymentStage.setTitle("Payment Details");
+
+        TableView<payementdetails> table = new TableView<>();
+        ObservableList<payementdetails> paymentList = FXCollections.observableArrayList();
+
+        TableColumn<payementdetails, Long> vidColumn = new TableColumn<>("VID");
+        vidColumn.setCellValueFactory(new PropertyValueFactory<>("vid"));
+
+        TableColumn<payementdetails, Long> fvidColumn = new TableColumn<>("FVID");
+        fvidColumn.setCellValueFactory(new PropertyValueFactory<>("fvid"));
+
+        TableColumn<payementdetails, Double> amountPaidColumn = new TableColumn<>("Amount Paid");
+        amountPaidColumn.setCellValueFactory(new PropertyValueFactory<>("amountPaid"));
+
+        TableColumn<payementdetails, String> noteColumn = new TableColumn<>("Note");
+        noteColumn.setCellValueFactory(new PropertyValueFactory<>("note"));
+
+        TableColumn<payementdetails, Boolean> activeColumn = new TableColumn<>("Active");
+        activeColumn.setCellValueFactory(new PropertyValueFactory<>("active"));
+
+        TableColumn<payementdetails, LocalDateTime> createdOnColumn = new TableColumn<>("Created On");
+        createdOnColumn.setCellValueFactory(new PropertyValueFactory<>("createdOn"));
+        // Format the createdOn column using the same formatter
+        createdOnColumn.setCellFactory(col -> new TableCell<payementdetails, LocalDateTime>() {
+            @Override
+            protected void updateItem(LocalDateTime item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.format(formatter));
+            }
+        });
+
+        table.getColumns().addAll(vidColumn, fvidColumn, amountPaidColumn, noteColumn, activeColumn, createdOnColumn);
+
+        // Load payment details from FACTOR_PAID table
+        String sql = "SELECT VID, FVID, AMOUNT_PAID, NOTE, ISACTIVE, CREATED_ON FROM FACTOR_PAID where FVID="+vendor.getId();
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                long vid = rs.getLong("VID");
+                long fvid = rs.getLong("FVID");
+                double amountPaid = rs.getDouble("AMOUNT_PAID");
+                String note = rs.getString("NOTE");
+                boolean active = rs.getBoolean("ISACTIVE");
+                LocalDateTime createdOn = rs.getTimestamp("CREATED_ON") != null
+                        ? rs.getTimestamp("CREATED_ON").toLocalDateTime()
+                        : LocalDateTime.now();
+                payementdetails payment = new payementdetails(vid, fvid, amountPaid, note, active, createdOn);
+                paymentList.add(payment);
+            }
+        } catch (SQLException ex) {
+            showAlert("Database Error", "Error loading payment details: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        table.setItems(paymentList);
+
+        VBox vbox = new VBox(10);
+        vbox.setPadding(new Insets(10));
+        vbox.getChildren().add(table);
+
+        Scene scene = new Scene(vbox, 800, 400);
+        paymentStage.setScene(scene);
+        paymentStage.showAndWait();
     }
 
 }

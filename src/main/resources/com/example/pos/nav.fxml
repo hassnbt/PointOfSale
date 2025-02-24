@@ -1,29 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
 
 <VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.example.pos.NavController"
-      spacing="20" alignment="TOP_LEFT" prefWidth="200" prefHeight="600"
+      spacing="20" alignment="TOP_LEFT" prefWidth="250" prefHeight="600"
       style="-fx-background-color: #2C3E50; -fx-padding: 20;">
-    <Label text="Menu" style="-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;"/>
-    <Button text="📦 Inventory" fx:id="inventoryButton" onAction="#handleInventoryButton"
-            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-    <Button text="🛒 Bills" fx:id="salesButton" onAction="#handleSalesButton"
-            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-    <Button text="📊 Sales" fx:id="SalesButton" onAction="#handlesalesButton"
-            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-    <Button text="📊 Employee" fx:id="reportsButton" onAction="#handleEmployeeButton"
-            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-    <Button text="📊 Vendors" fx:id="VendorsButton" onAction="#handleVendorsButton"
-            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold;"/>
-    <Button text="🔙 Back" fx:id="backButton" onAction="#handleBackButton"
-            style="-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-weight: bold;"/>
-    <Button text="🔙 Factory Vendor" fx:id="FactorvendorButton" onAction="#handleFactoryVendorButton"
-            style="-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-weight: bold;"/>
+    <Label text="Menu" style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
+    <Button fx:id="inventoryButton" onAction="#handleInventoryButton"
+            text="📦 Inventory" prefWidth="250"
+            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Button fx:id="salesButton" onAction="#handleSalesButton"
+            text="🧾 Bills" prefWidth="250"
+            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Button fx:id="SalesButton" onAction="#handlesalesButton"
+            text="📈 Sales" prefWidth="250"
+            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Button fx:id="reportsButton" onAction="#handleEmployeeButton"
+            text="👥 Employee" prefWidth="250"
+            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Button fx:id="VendorsButton" onAction="#handleVendorsButton"
+            text="🤝 Vendors" prefWidth="250"
+            style="-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Button fx:id="backButton" onAction="#handleBackButton"
+            text="🔙 Back" prefWidth="250"
+            style="-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Button fx:id="FactorvendorButton" onAction="#handleFactoryVendorButton"
+            text="🏭 Factory Vendor" prefWidth="250"
+            style="-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
 </VBox>
-
