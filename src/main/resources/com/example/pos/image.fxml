@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.example.pos.ImageUploadController" spacing="10" alignment="CENTER">
+    <TextField fx:id="nameField" promptText="Enter image name" />
+    <HBox spacing="10">
+        <Button text="Choose Image" onAction="#handleChooseImage"/>
+        <Button text="Capture Image" onAction="#handleCaptureImage"/>
+        <Button text="Save Image" onAction="#handleSaveImage"/>
+        <Button text="Load Image" onAction="#handleLoadImage"/>
+    </HBox>
+    <ImageView fx:id="imageView" fitWidth="300" preserveRatio="true"/>
+</VBox>

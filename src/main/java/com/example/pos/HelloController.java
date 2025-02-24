@@ -1,5 +1,7 @@
 package com.example.pos;
 
+import com.example.pos.Services.ImageService;
+import com.example.pos.Services.PrinterService;
 import javafx.animation.FadeTransition;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
@@ -19,7 +21,7 @@ import javafx.geometry.Insets;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import models.Product;
-
+import com.example.pos.Services.PrinterService.*;
 import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -240,6 +242,9 @@ public class HelloController {
             }
             loadProducts();
             clearFields();
+            //nk
+            // Assume 'cart' is a List<Product> and you have computed these values:
+
         } catch (Exception e) {
             showAlert("Invalid Input", "Please check your input values. Error: " + e.getMessage());
         }

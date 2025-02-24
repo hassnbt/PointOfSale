@@ -4,6 +4,7 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -187,7 +188,7 @@ public class FactoryVendorController {
                 "-fx-font-size: 14px; -fx-padding: 8 15 8 15; -fx-background-radius: 5px;");
         paybill.setOnAction(e -> Addamount(vendor));
 
-        // Dummy button with styling
+        // Dummy button with styling (shows payment details)
         Button dummyButton = new Button("Show Payment Details");
         dummyButton.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white; " +
                 "-fx-font-size: 14px; -fx-padding: 8 15 8 15; -fx-background-radius: 5px;");
@@ -195,6 +196,15 @@ public class FactoryVendorController {
 
         // Add all three buttons to the buttonRow HBox
         buttonRow.getChildren().addAll(addBillButton, paybill, dummyButton);
+
+        // --- Date Filter Controls ---
+        HBox dateFilterBox = new HBox(10);
+        dateFilterBox.setPadding(new Insets(10));
+        Label fromLabel = new Label("From:");
+        DatePicker fromDatePicker = new DatePicker();
+        Label toLabel = new Label("To:");
+        DatePicker toDatePicker = new DatePicker();
+        dateFilterBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker);
 
         // Table for vendor bills with some styling
         TableView<vendorbill> billTable = new TableView<>();
@@ -269,7 +279,54 @@ public class FactoryVendorController {
             showAlert("Database Error", "Error loading vendor bills: " + e.getMessage());
             e.printStackTrace();
         }
-        billTable.setItems(billList);
+
+        // Use a FilteredList to filter bills by date range
+        FilteredList<vendorbill> filteredBills = new FilteredList<>(billList, b -> true);
+
+        // Add listeners to the date pickers to update the predicate
+        fromDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            filteredBills.setPredicate(bill -> {
+                if (newVal == null && toDatePicker.getValue() == null) {
+                    return true;
+                }
+                LocalDateTime createdOn = bill.getCreatedOn();
+                // If only start date is set
+                if (newVal != null && toDatePicker.getValue() == null) {
+                    return !createdOn.toLocalDate().isBefore(newVal);
+                }
+                // If only end date is set
+                if (newVal == null && toDatePicker.getValue() != null) {
+                    return !createdOn.toLocalDate().isAfter(toDatePicker.getValue());
+                }
+                // If both are set, check if within range
+                if (newVal != null && toDatePicker.getValue() != null) {
+                    return (!createdOn.toLocalDate().isBefore(newVal)) &&
+                            (!createdOn.toLocalDate().isAfter(toDatePicker.getValue()));
+                }
+                return true;
+            });
+        });
+        toDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            filteredBills.setPredicate(bill -> {
+                if (fromDatePicker.getValue() == null && newVal == null) {
+                    return true;
+                }
+                LocalDateTime createdOn = bill.getCreatedOn();
+                if (fromDatePicker.getValue() != null && newVal == null) {
+                    return !createdOn.toLocalDate().isBefore(fromDatePicker.getValue());
+                }
+                if (fromDatePicker.getValue() == null && newVal != null) {
+                    return !createdOn.toLocalDate().isAfter(newVal);
+                }
+                if (fromDatePicker.getValue() != null && newVal != null) {
+                    return (!createdOn.toLocalDate().isBefore(fromDatePicker.getValue())) &&
+                            (!createdOn.toLocalDate().isAfter(newVal));
+                }
+                return true;
+            });
+        });
+        // Set the table items to the filtered list
+        billTable.setItems(filteredBills);
 
         // Calculate total of all bills (sum of the Total field)
         double totalBills = billList.stream().mapToDouble(b -> b.getTotal()).sum();
@@ -307,8 +364,8 @@ public class FactoryVendorController {
         VBox vbox = new VBox(10);
         vbox.setPadding(new Insets(10));
         vbox.setStyle("-fx-background-color: #f5f5f5; -fx-border-color: #cccccc; -fx-border-width: 1px; -fx-border-radius: 5px;");
-        // Place the buttonRow, then the table, then the summary box
-        vbox.getChildren().addAll(buttonRow, billTable, summaryBox);
+        // Place the buttonRow, date filters, then the table, then the summary box
+        vbox.getChildren().addAll(buttonRow, dateFilterBox, billTable, summaryBox);
 
         Scene scene = new Scene(vbox, 800, 500);
         modalStage.setScene(scene);

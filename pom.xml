@@ -122,6 +122,17 @@
             <artifactId>jaybird</artifactId>
             <version>6.0.0</version> <!-- Use the latest version -->
         </dependency>
+        <dependency>
+            <groupId>com.github.sarxos</groupId>
+            <artifactId>webcam-capture</artifactId>
+            <version>0.3.12</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.4.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

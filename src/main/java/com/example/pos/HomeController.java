@@ -1,5 +1,6 @@
 package com.example.pos;
 
+import com.example.pos.Services.PrinterService;
 import javafx.animation.FadeTransition;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
@@ -34,7 +35,7 @@ public class HomeController {
 
     // Assume each package contains 10 individual units.
     private static final int DEFAULT_UNIT_COUNT = 10;
-
+    private PrinterService printservice = new PrinterService();
     // Scene switching method
     private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
         FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
@@ -540,7 +541,9 @@ public class HomeController {
                 }
 
                 showAlert("Checkout Successful", "Total Amount: " + totalAmountLabel.getText(), Alert.AlertType.INFORMATION);
+                printservice.printBill(cart, total, discount, amountReceived, cashOut, buyerName, notes);
                 cart.clear();
+
                 updateTotalAmount();
 
             } catch (NumberFormatException e) {

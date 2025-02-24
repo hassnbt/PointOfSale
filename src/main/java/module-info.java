@@ -11,7 +11,9 @@ module com.example.pos {
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
     requires java.sql;
-    requires java.desktop;
+    requires webcam.capture;
+    requires javafx.swing;
+    requires tess4j;
 
     exports com.example.pos;
     opens com.example.pos to javafx.fxml;
