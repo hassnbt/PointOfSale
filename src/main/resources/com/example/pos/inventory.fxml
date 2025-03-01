@@ -38,19 +38,25 @@
             </padding>
 
             <!-- Filter Controls -->
-            <HBox spacing="10" alignment="CENTER_LEFT">
-                <Label text="From:"/>
-                <DatePicker fx:id="startDatePicker"/>
-                <Label text="To:"/>
-                <DatePicker fx:id="endDatePicker"/>
-                <Label text="Search:"/>
-                <TextField fx:id="searchField" promptText="Buyer name"/>
-                <CheckBox fx:id="orderby" text="Old Bills"/>
-                <CheckBox fx:id="saleman" text="Saleman"/>
-
-                <CheckBox fx:id="cashOutFilterCheckBox" text="Amount Pending"/>
-                <Button text="Filter" onAction="#handleFilter"/>
-            </HBox>
+            <VBox spacing="10" style="-fx-border-color: black; -fx-border-width: 1; -fx-padding: 10;">
+                <!-- First line of controls -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="From:"/>
+                    <DatePicker fx:id="startDatePicker"/>
+                    <Label text="To:"/>
+                    <DatePicker fx:id="endDatePicker"/>
+                    <Label text="Search:"/>
+                    <TextField fx:id="searchField" promptText="Buyer name"/>
+                </HBox>
+                <!-- Second line of controls -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <CheckBox fx:id="orderby" text="Old Bills"/>
+                    <CheckBox fx:id="saleman" text="Saleman"/>
+                    <CheckBox fx:id="vendor" text="Vendor"/>
+                    <CheckBox fx:id="cashOutFilterCheckBox" text="Amount Pending"/>
+                    <Button text="Filter" onAction="#handleFilter"/>
+                </HBox>
+            </VBox>
 
             <!-- Bills Table -->
             <TableView fx:id="billsTable" VBox.vgrow="ALWAYS">

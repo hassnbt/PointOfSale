@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.example.pos.SalesController">
+    <!-- Top: Date Filters -->
+
+    <!-- Left: Navigation (included FXML) -->
+    <left>
+        <fx:include source="nav.fxml"/>
+    </left>
+    <!-- Center: TableView with additional center date filter -->
+    <center>
+        <VBox spacing="10">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <HBox spacing="10" BorderPane.alignment="CENTER">
+                <Label text="From:"/>
+                <DatePicker fx:id="fromDatePicker"/>
+                <Label text="To:"/>
+                <DatePicker fx:id="toDatePicker"/>
+                <Button fx:id="searchButton" text="Search"/>
+                <Button fx:id="showExpenseButton" text="Show Expenses"
+                        style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </HBox>
+
+
+            <TableView fx:id="tableView">
+                <columns>
+                    <TableColumn fx:id="idColumn" text="ID" prefWidth="50"/>
+                    <TableColumn fx:id="nameColumn" text="Name" prefWidth="150"/>
+                    <TableColumn fx:id="soldQuantityColumn" text="Sold Quantity" prefWidth="120"/>
+                    <TableColumn fx:id="soldTotalColumn" text="Sold Total" prefWidth="120"/>
+                    <TableColumn fx:id="soldPerUnitColumn" text="Sold Per Unit" prefWidth="120"/>
+                    <TableColumn fx:id="factoryQuantityColumn" text="Factory Quantity" prefWidth="120"/>
+                    <TableColumn fx:id="factoryTotalColumn" text="Factory Total" prefWidth="120"/>
+                    <TableColumn fx:id="factorLooseCostColumn" text="Factor Loose Cost" prefWidth="150"/>
+                    <TableColumn fx:id="quantityPerUnitColumn" text="Quantity Per Unit" prefWidth="150"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+    <!-- Right: Dummy Colorful Boxes -->
+    <right>
+        <VBox spacing="10" BorderPane.alignment="CENTER">
+            <!-- Amount Received -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Amount Received:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="amountReceivedLabel" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+            <!-- Amount Pending -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Amount Pending:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="amountPendingLabel" text="0.0" style="-fx-background-color: #C8E6C9; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+            <!-- Discount -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Discount:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="discountLabel" text="0.0" style="-fx-background-color: #BBDEFB; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+            <!-- Total -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Total:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="totalLabel" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+            <!-- Factory Total -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Factory Total:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="factoryTotalSummaryLabel" text="0.0" style="-fx-background-color: #BBDEFB; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Sold Total:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="soldTotalSummaryLabel" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+
+            <!-- Sold Total -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Total Expenses:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="expenseTotalLabel" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+
+            <!-- Sold Total -->
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text= "Factory Paid:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="factorPaidTotalLabel" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+            <VBox alignment="CENTER" spacing="5" maxWidth="150">
+                <Label text="Salary Paid:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label fx:id="empSalaryTotalLabel" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+            </VBox>
+
+
+<!--            <VBox alignment="CENTER" spacing="5" maxWidth="150">-->
+<!--                <Label text="Total expense:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>-->
+<!--                <Label fx:id="totalexpence" text="0.0" style="-fx-background-color: #FFCDD2; -fx-padding: 10; -fx-font-size: 16px; -fx-font-weight: bold;"/>-->
+<!--            </VBox>-->
+        </VBox>
+    </right>
+
+
+
+    <!-- Bottom: Expense Controls -->
+<!--    <bottom>-->
+<!--        <HBox spacing="10" alignment="CENTER">-->
+<!--            <Label text="Expense Date:"/>-->
+<!--            <DatePicker fx:id="expenseDatePicker"/>-->
+<!--            <TextField fx:id="expenseNoteField" promptText="Enter expense note" prefWidth="200"/>-->
+<!--            <Button fx:id="addExpenseButton" text="Add Expense"-->
+<!--                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"/>-->
+<!--            <Button fx:id="showExpenseButton" text="Show Expenses"-->
+<!--                    style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"/>-->
+<!--        </HBox>-->
+<!--    </bottom>-->
+    <!-- Outer Padding -->
+    <padding>
+        <Insets top="10" right="10" bottom="10" left="10"/>
+    </padding>
+</BorderPane>

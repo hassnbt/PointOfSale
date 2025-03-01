@@ -17,22 +17,26 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import models.Bill;
+import models.Expense;
 import models.Product;
-
+import java.time.format.DateTimeFormatter;
 import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
-
+import models.AmountReceiveRecord;
 public class InventoryController {
 
     public Button homebutton;
     public CheckBox saleman;
+    public CheckBox vendor;
     @FXML private DatePicker startDatePicker;
     @FXML private DatePicker endDatePicker;
     @FXML private TextField searchField;
@@ -54,7 +58,7 @@ public class InventoryController {
     @FXML private Label totalSummaryLabel;
     @FXML private ListView<String> availableProductsList;
     private ObservableList<Bill> billsList = FXCollections.observableArrayList();
-
+    private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     // Firebird DB connection info.
     private static final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
     private static final String USER = "sysdba";
@@ -158,6 +162,13 @@ public class InventoryController {
 
 
         }
+        if(vendor.isSelected())
+        {
+
+
+            sql.append("AND vid is not null ");
+
+        }
         if (orderby.isSelected()) {
             sql.append("ORDER BY created ASC ");
         }
@@ -210,21 +221,23 @@ public class InventoryController {
      * If the checkbox is selected, the entire pending amount (cash_out) is used.
      */
     private void handleBillPaymentUpdate(Bill bill) {
-        Dialog<String> dialog = new Dialog<>();
+        // Create a dialog to get payment details and a note.
+        Dialog<Map<String, String>> dialog = new Dialog<>();
         dialog.setTitle("Update Payment for Bill: " + bill.getBillid() +
                 " Name: " + bill.getName() + " Date: " + bill.getShowdate());
         dialog.setHeaderText("Enter Payment Details");
 
-        // Create button types for OK, Detail, and Cancel
+        // Create button types for OK, Detail, Payment Details, and Cancel
         ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
         ButtonType detailButtonType = new ButtonType("Detail", ButtonBar.ButtonData.OTHER);
-        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, detailButtonType, ButtonType.CANCEL);
+        ButtonType paymentDetailButtonType = new ButtonType("Payment Details", ButtonBar.ButtonData.OTHER);
+        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, detailButtonType, paymentDetailButtonType, ButtonType.CANCEL);
 
-        // Build the input grid
+        // Build the input grid.
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
-        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+        grid.setPadding(new Insets(20, 150, 10, 10));
 
         TextField paymentField = new TextField();
         paymentField.setPromptText("Payment Amount");
@@ -237,35 +250,52 @@ public class InventoryController {
         paymentField.setTextFormatter(numericFormatter);
 
         CheckBox fullPaymentCheckBox = new CheckBox("All Amount Received");
-        fullPaymentCheckBox.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
-            paymentField.setDisable(isSelected);
-            if (isSelected) {
+        fullPaymentCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            paymentField.setDisable(newVal);
+            if (newVal) {
                 paymentField.clear();
             }
         });
 
+        // New field for payment note
+        TextField paymentNoteField = new TextField();
+        paymentNoteField.setPromptText("Enter payment note");
+
         grid.add(new Label("Payment Received:"), 0, 0);
         grid.add(paymentField, 1, 0);
         grid.add(fullPaymentCheckBox, 2, 0);
+        grid.add(new Label("Note:"), 0, 1);
+        grid.add(paymentNoteField, 1, 1, 2, 1); // Span across columns if desired
 
         dialog.getDialogPane().setContent(grid);
 
-        // Return "ALL", the payment amount, or "DETAIL" based on the button clicked.
+        // Return a Map with keys "payment" and "note"
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == okButtonType) {
-                return fullPaymentCheckBox.isSelected() ? "ALL" : paymentField.getText();
+                Map<String, String> result = new HashMap<>();
+                result.put("payment", fullPaymentCheckBox.isSelected() ? "ALL" : paymentField.getText());
+                result.put("note", paymentNoteField.getText());
+                return result;
             } else if (dialogButton == detailButtonType) {
-                return "DETAIL";
+                return Collections.singletonMap("payment", "DETAIL");
+            } else if (dialogButton == paymentDetailButtonType) {
+                return Collections.singletonMap("payment", "PAYMENT_DETAIL");
             }
             return null;
         });
 
-        Optional<String> result = dialog.showAndWait();
+        Optional<Map<String, String>> result = dialog.showAndWait();
         if (result.isPresent()) {
-            String paymentInput = result.get();
+            Map<String, String> paymentData = result.get();
+            String paymentInput = paymentData.get("payment");
+            // If "DETAIL" button was pressed, show bill details from CART table.
             if ("DETAIL".equals(paymentInput)) {
-                // Open a new modal showing all cart items for the same bill id.
                 showBillDetails(bill.getBillid());
+                return;
+            }
+            // If "PAYMENT_DETAIL" button was pressed, show details from AMOUNT_RECEIVE table.
+            if ("PAYMENT_DETAIL".equals(paymentInput)) {
+                showPaymentDetailsFromAmountReceive(bill.getBillid());
                 return;
             }
             double paymentAmount;
@@ -289,8 +319,100 @@ public class InventoryController {
             bill.setCashOut(newCashOut);
             billsTable.refresh();
             updateSummary();
+
+            // Now, insert a record into the AMOUNT_RECEIVE table with the note.
+            String paymentNote = paymentData.get("note");
+            final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+            final String USER = "sysdba";
+            final String PASSWORD = "123456";
+            String insertSql = "INSERT INTO AMOUNT_RECEIVE (BILL_ID, NOTE, CREATED_ON, IS_ACTIVE,AMOUNT) " +
+                    "VALUES (?, ?, CURRENT_TIMESTAMP, ?,?)";
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+                pstmt.setLong(1, bill.getBillid());
+                pstmt.setString(2, paymentNote);
+                pstmt.setBoolean(3, true);
+                pstmt.setDouble(4, paymentAmount);
+                pstmt.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                showAlert("Database Error", "Error updating payment details: " + ex.getMessage(), Alert.AlertType.ERROR);
+            }
         }
     }
+
+    /**
+     * Opens a modal that shows payment details from the AMOUNT_RECEIVE table for the given bill id.
+     */
+    private void showPaymentDetailsFromAmountReceive(long billId) {
+        Stage paymentStage = new Stage();
+        paymentStage.initModality(Modality.APPLICATION_MODAL);
+        paymentStage.setTitle("Payment Details for Bill ID: " + billId);
+
+        TableView<AmountReceiveRecord> table = new TableView<>();
+        ObservableList<AmountReceiveRecord> list = FXCollections.observableArrayList();
+
+        TableColumn<AmountReceiveRecord, Long> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        idCol.setPrefWidth(80);
+
+        TableColumn<AmountReceiveRecord, String> noteCol = new TableColumn<>("Note");
+        noteCol.setCellValueFactory(new PropertyValueFactory<>("note"));
+        noteCol.setPrefWidth(200);
+        TableColumn<AmountReceiveRecord, Double> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(new PropertyValueFactory<>("amount"));
+        amountCol.setPrefWidth(180);
+
+        TableColumn<AmountReceiveRecord, LocalDateTime> createdOnCol = new TableColumn<>("Created On");
+        createdOnCol.setCellValueFactory(new PropertyValueFactory<>("createdOn"));
+        createdOnCol.setPrefWidth(180);
+        createdOnCol.setCellFactory(col -> new TableCell<AmountReceiveRecord, LocalDateTime>() {
+            @Override
+            protected void updateItem(LocalDateTime item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.format(formatter));
+            }
+        });
+
+        TableColumn<AmountReceiveRecord, Boolean> activeCol = new TableColumn<>("Active");
+        activeCol.setCellValueFactory(new PropertyValueFactory<>("active"));
+        activeCol.setPrefWidth(80);
+
+        table.getColumns().addAll(idCol, noteCol,amountCol, createdOnCol, activeCol);
+
+        // Query AMOUNT_RECEIVE table for records matching this bill id.
+        final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
+        final String USER = "sysdba";
+        final String PASSWORD = "123456";
+        String sql = "SELECT ID, BILL_ID,amount, NOTE, CREATED_ON, IS_ACTIVE FROM AMOUNT_RECEIVE WHERE BILL_ID = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, billId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    long id = rs.getLong("ID");
+                    String note = rs.getString("NOTE");
+                    Timestamp ts = rs.getTimestamp("CREATED_ON");
+                    LocalDateTime createdOn = ts != null ? ts.toLocalDateTime() : LocalDateTime.now();
+                    boolean active = rs.getBoolean("IS_ACTIVE");
+                    double amount = rs.getDouble("amount");
+
+                    list.add(new AmountReceiveRecord(id, billId, note, createdOn, active,amount));
+                }
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            showAlert("Database Error", "Error loading payment details: " + ex.getMessage(), Alert.AlertType.ERROR);
+        }
+        table.setItems(list);
+
+        VBox layout = new VBox(10, table);
+        layout.setPadding(new Insets(10));
+        Scene scene = new Scene(layout, 700, 400);
+        paymentStage.setScene(scene);
+        paymentStage.showAndWait();
+    }
+
     Label grandTotalLabel = new Label();
     private void showBillDetails(long billId) {
         Dialog<Void> detailsDialog = new Dialog<>();

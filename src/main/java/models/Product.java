@@ -12,6 +12,8 @@ public class Product {
     private String createdBy;
     private boolean isActive;
     private double originalPrice;  // renamed field
+    private double soldPerUnitQuantity;
+    private double soldQuantity;
 
     // Constructor with default quantityPerUnit
     public Product(int id, String name, double price, int quantity, LocalDateTime createdOn, String createdBy, boolean isActive) {
@@ -37,7 +39,20 @@ public class Product {
         this.quantityPerUnit = quantityPerUnit;
         this.originalPrice = originalPrice;
     }
-
+        public Product(int id, String name, double price, int quantity, LocalDateTime createdOn, String createdBy, boolean isActive, int quantityPerUnit, double originalPrice,double soldQuantity,double soldPerUnitQuantity)
+        {
+            this.id = id;
+            this.name = name;
+            this.price = price;
+            this.quantity = quantity;
+            this.createdOn = createdOn;
+            this.createdBy = createdBy;
+            this.isActive = isActive;
+            this.quantityPerUnit = quantityPerUnit;
+            this.originalPrice = originalPrice;
+            this.soldPerUnitQuantity=soldPerUnitQuantity;
+            this.soldQuantity=soldQuantity;
+        }
     // Getters
     public int getId() { return id; }
     public String getName() { return name; }
@@ -62,5 +77,21 @@ public class Product {
     @Override
     public String toString() {
         return name;
+    }
+
+    public double getSoldPerUnitQuantity() {
+        return soldPerUnitQuantity;
+    }
+
+    public void setSoldPerUnitQuantity(double soldPerUnitQuantity) {
+        this.soldPerUnitQuantity = soldPerUnitQuantity;
+    }
+
+    public double getSoldQuantity() {
+        return soldQuantity;
+    }
+
+    public void setSoldQuantity(double soldQuantity) {
+        this.soldQuantity = soldQuantity;
     }
 }

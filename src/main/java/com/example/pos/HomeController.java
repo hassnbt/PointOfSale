@@ -30,52 +30,55 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-
+import javafx.application.Platform;
+import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 public class HomeController {
 
     // Assume each package contains 10 individual units.
     private static final int DEFAULT_UNIT_COUNT = 10;
     private PrinterService printservice = new PrinterService();
     // Scene switching method
-    private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
-        Parent root = loader.load();
-
-        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-        Scene scene = new Scene(root, 800, 2500);
-
-        // Apply Fade Transition
-        root.setOpacity(0);
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(500), root);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-        fadeIn.play();
-
-        stage.setScene(scene);
-        stage.setTitle(title);
-        stage.setMaximized(true);
-        stage.show();
-    }
-
-    @FXML
-    private void handleBackButton(ActionEvent event) throws IOException {
-        switchScene(event, "hello-view.fxml", "Dosa Cola POS System");
-    }
-
-    @FXML
-    private void handleInventoryButton(ActionEvent event) throws IOException {
-        switchScene(event, "hello-view.fxml", "Inventory Management");
-    }
-
-    @FXML
-    private void handleSalesButton(ActionEvent event) throws IOException {
-        switchScene(event, "inventory.fxml", "Sales");
-    }
-
-    @FXML
-    private void handleReportsButton(ActionEvent event) throws IOException {
-        switchScene(event, "reports.fxml", "Reports");
-    }
+//    private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
+//        FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
+//        Parent root = loader.load();
+//
+//        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+//        Scene scene = new Scene(root, 800, 2500);
+//
+//        // Apply Fade Transition
+//        root.setOpacity(0);
+//        FadeTransition fadeIn = new FadeTransition(Duration.millis(500), root);
+//        fadeIn.setFromValue(0);
+//        fadeIn.setToValue(1);
+//        fadeIn.play();
+//
+//        stage.setScene(scene);
+//        stage.setTitle(title);
+//        stage.setMaximized(true);
+//        stage.show();
+//    }
+//
+//    @FXML
+//    private void handleBackButton(ActionEvent event) throws IOException {
+//        switchScene(event, "hello-view.fxml", "Dosa Cola POS System");
+//    }
+//
+//    @FXML
+//    private void handleInventoryButton(ActionEvent event) throws IOException {
+//        switchScene(event, "hello-view.fxml", "Inventory Management");
+//    }
+//
+//    @FXML
+//    private void handleSalesButton(ActionEvent event) throws IOException {
+//        switchScene(event, "inventory.fxml", "Sales");
+//    }
+//
+//    @FXML
+//    private void handleReportsButton(ActionEvent event) throws IOException {
+//        switchScene(event, "reports.fxml", "Reports");
+//    }
 
     // Center pane elements (search and add)
     @FXML private TextField searchField;
@@ -113,6 +116,70 @@ public class HomeController {
     }
     @FXML
     public void initialize() {
+        // In your initialize() method:
+        quantityField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                // Trigger add-to-cart functionality when Enter is pressed.
+                handleAddProduct(new ActionEvent());
+                event.consume();
+            }});
+        manualPriceField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                // Trigger add-to-cart functionality when Enter is pressed.
+                handleAddProduct(new ActionEvent());
+                event.consume();
+            }});
+
+        searchField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                // Trigger add-to-cart functionality when Enter is pressed.
+                handleAddProduct(new ActionEvent());
+                event.consume();
+            } else if (event.getCode() == KeyCode.DOWN) {
+                // Move selection down in availableProductsList.
+                availableProductsList.getSelectionModel().selectNext();
+                availableProductsList.scrollTo(availableProductsList.getSelectionModel().getSelectedIndex());
+                event.consume();
+            } else if (event.getCode() == KeyCode.UP) {
+                // Move selection up in availableProductsList.
+                availableProductsList.getSelectionModel().selectPrevious();
+                availableProductsList.scrollTo(availableProductsList.getSelectionModel().getSelectedIndex());
+                event.consume();
+            } else if (event.getCode() == KeyCode.SPACE) {
+                // Increase the quantity in quantityField by 10.
+                int qty = 0;
+                try {
+                    qty = Integer.parseInt(quantityField.getText());
+                } catch (NumberFormatException ex) {
+                    // If the field is empty or invalid, assume 0.
+                }
+                quantityField.setText(String.valueOf(qty + 10));
+                event.consume();
+            }
+        });
+
+// Global shortcuts (Ctrl+C for checkout, Ctrl+V for clear cart)
+        Platform.runLater(() -> {
+            Scene scene = searchField.getScene();
+            if (scene != null) {
+                scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+                    if (event.isControlDown()) {
+                        if (event.getCode() == KeyCode.C) {
+                            // Ctrl+C triggers checkout.
+                            handleCheckout(new ActionEvent());
+                            event.consume();
+                        } else if (event.getCode() == KeyCode.V) {
+                            // Ctrl+V clears the cart.
+                            cart.clear();
+                            cartTable.refresh();
+                            updateTotalAmount();
+                            event.consume();
+                        }
+                    }
+                });
+            }
+        });
+
         manualPriceField.setVisible(false);
 
         // Load available products from the DB using correct column names
@@ -197,6 +264,8 @@ public class HomeController {
                 removeButton.setOnAction(e -> {
                     // Get the current product from the table row.
                     Product product = getTableRow().getItem();
+                    product.setQuantity(0);
+                    product.setQuantityPerUnit(0);
                     if (product != null) {
                         // Optionally, show a confirmation dialog.
                         Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION,
@@ -325,8 +394,11 @@ public class HomeController {
         dialog.setTitle("Checkout");
         dialog.setHeaderText("Enter Checkout Details");
 
+        // Create button types for OK, Detail, Payment Details, and Cancel
         ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+        ButtonType detailButtonType = new ButtonType("Detail", ButtonBar.ButtonData.OTHER);
+        ButtonType paymentDetailButtonType = new ButtonType("Payment Details", ButtonBar.ButtonData.OTHER);
+        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, detailButtonType, paymentDetailButtonType, ButtonType.CANCEL);
 
         // --- Mode Selection: using RadioButtons in a ToggleGroup ---
         ToggleGroup modeGroup = new ToggleGroup();
@@ -377,11 +449,17 @@ public class HomeController {
         areaGrid.setPadding(new Insets(20, 150, 10, 10));
         ComboBox<Employee> employeeComboBox = new ComboBox<>();
         ObservableList<Employee> emp1 = getEmployeesFromDB();
-
         employeeComboBox.setItems(emp1);
         employeeComboBox.setPromptText("Select Employee");
         areaGrid.add(new Label("Select Employee:"), 0, 0);
         areaGrid.add(employeeComboBox, 1, 0);
+        // New: Add Area selection ComboBox for Area Checkout
+        ComboBox<Area> areaComboBox = new ComboBox<>();
+        ObservableList<Area> areaList = getAreasFromDB();
+        areaComboBox.setItems(areaList);
+        areaComboBox.setPromptText("Select Area");
+        areaGrid.add(new Label("Select Area:"), 0, 1);
+        areaGrid.add(areaComboBox, 1, 1);
 
         // --- Vendor Checkout Grid: load vendors from DB ---
         GridPane vendorGrid = new GridPane();
@@ -392,8 +470,29 @@ public class HomeController {
         ObservableList<Vendor> vend = getVendorsFromDB();
         vendorComboBox.setItems(vend);
         vendorComboBox.setPromptText("Select Vendor");
+        vendorComboBox.setPrefWidth(200); // increased readability
         vendorGrid.add(new Label("Select Vendor:"), 0, 0);
         vendorGrid.add(vendorComboBox, 1, 0);
+        // Create separate controls for vendor mode.
+        TextField vendorAmountReceivedField = new TextField();
+        vendorAmountReceivedField.setPromptText("Amount Received");
+        TextFormatter<String> vendorNumericFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("\\d*(\\.\\d{0,2})?")) {
+                return change;
+            }
+            return null;
+        });
+        vendorAmountReceivedField.setTextFormatter(vendorNumericFormatter);
+        CheckBox vendorFullPaymentCheckBox = new CheckBox("All Amount Received");
+        vendorFullPaymentCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            vendorAmountReceivedField.setDisable(newVal);
+            if (newVal) {
+                vendorAmountReceivedField.clear();
+            }
+        });
+        vendorGrid.add(new Label("Amount Received:"), 0, 1);
+        vendorGrid.add(vendorAmountReceivedField, 1, 1);
+        vendorGrid.add(vendorFullPaymentCheckBox, 2, 1);
 
         // --- Container for mode selection and dynamic content ---
         VBox contentBox = new VBox(10);
@@ -429,12 +528,16 @@ public class HomeController {
                     result.put("amountReceived", fullAmountCheckBox.isSelected() ? "ALL" : amountReceivedField.getText());
                     result.put("vendorId", "");
                     result.put("employeeId", "");
+                    result.put("areaId", "");
                 } else if (selected == areaRB) {
                     result.put("mode", "area");
                     Employee emp = employeeComboBox.getValue();
                     if (emp == null) return null;
                     result.put("buyerName", emp.getName());
                     result.put("employeeId", String.valueOf(emp.getEid()));
+                    Area area = areaComboBox.getValue();
+                    if (area == null) return null;
+                    result.put("areaId", String.valueOf(area.getAreaid()));
                     result.put("amountReceived", "0");
                     result.put("discount", "0");
                     result.put("notes", "");
@@ -445,10 +548,11 @@ public class HomeController {
                     if (ven == null) return null;
                     result.put("buyerName", ven.getName());
                     result.put("vendorId", String.valueOf(ven.getVid()));
-                    result.put("amountReceived", "0");
+                    result.put("amountReceived", vendorFullPaymentCheckBox.isSelected() ? "ALL" : vendorAmountReceivedField.getText());
                     result.put("discount", "0");
                     result.put("notes", "");
                     result.put("employeeId", "");
+                    result.put("areaId", "");
                 }
                 return result;
             }
@@ -458,6 +562,7 @@ public class HomeController {
         Optional<Map<String, String>> result = dialog.showAndWait();
         if (result.isPresent()) {
             Map<String, String> checkoutData = result.get();
+            // Handle "DETAIL" mode if needed (not shown here)
             try {
                 String totalText = totalAmountLabel.getText();
                 double total = Double.parseDouble(totalText.replaceAll("[^0-9.]", ""));
@@ -478,15 +583,17 @@ public class HomeController {
                 String notes = checkoutData.get("notes");
                 String vendorIdStr = checkoutData.get("vendorId");
                 String employeeIdStr = checkoutData.get("employeeId");
+                String areaId = checkoutData.get("areaId");
+
 
                 final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
                 final String USER = "sysdba";
                 final String PASSWORD = "123456";
 
-                // Insert the bill record. (Assuming your bills table has columns vendorid and employeeid.)
+                // Insert the bill record.
                 int billId = -1;
-                String billSql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total, vid, eid) " +
-                        "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?, ?, ?)";
+                String billSql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total, vid, eid, areaid) " +
+                        "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                      PreparedStatement billPstmt = conn.prepareStatement(billSql, Statement.RETURN_GENERATED_KEYS)) {
                     billPstmt.setDouble(1, amountReceived);
@@ -505,6 +612,21 @@ public class HomeController {
                     } else {
                         billPstmt.setNull(8, Types.INTEGER);
                     }
+                    // For area checkout, if needed. For now, we assume areaId is not used in normal or vendor mode.
+                    if(areaId!=null&&!areaId.isEmpty())
+                    {
+                        billPstmt.setInt(9, Integer.parseInt(areaId));
+
+
+                    }
+                    else
+                    {
+                        billPstmt.setNull(9, Types.INTEGER);
+
+
+
+                    }
+                  //  billPstmt.setNull(9, Types.INTEGER);
                     billPstmt.executeUpdate();
 
                     ResultSet generatedKeys = billPstmt.getGeneratedKeys();
@@ -517,8 +639,22 @@ public class HomeController {
                     showAlert("Error", "Failed to retrieve Bill ID.", Alert.AlertType.ERROR);
                     return;
                 }
-
-                // Insert each cart item into the CART table as usual.
+                if (amountReceived != 0) {
+                    String insertSql = "INSERT INTO AMOUNT_RECEIVE (BILL_ID, NOTE, CREATED_ON, IS_ACTIVE, AMOUNT) " +
+                            "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)";
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                         PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+                        pstmt.setLong(1, billId);
+                        pstmt.setString(2, "Bill ka Waqt");
+                        pstmt.setBoolean(3, true);
+                        pstmt.setDouble(4, amountReceived);
+                        pstmt.executeUpdate();
+                    } catch (SQLException ex) {
+                        ex.printStackTrace();
+                        showAlert("Database Error", "Error updating payment details: " + ex.getMessage(), Alert.AlertType.ERROR);
+                    }
+                }
+                // Insert each cart item into the CART table.
                 String cartSql = "INSERT INTO CART (bill_id, product_id, name, price, quantity, original_price, created_on, created_by, is_active, quantity_per_unit) " +
                         "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
@@ -531,7 +667,6 @@ public class HomeController {
                         cartPstmt.setInt(5, p.getQuantity());
                         cartPstmt.setDouble(6, p.getOriginalPrice());
                         cartPstmt.setString(7, p.getCreatedBy() != null ? p.getCreatedBy() : "User");
-                        // For this example, we assume is_active in cart remains true.
                         cartPstmt.setBoolean(8, true);
                         cartPstmt.setInt(9, p.getQuantityPerUnit());
                         cartPstmt.executeUpdate();
@@ -641,6 +776,7 @@ public class HomeController {
         public SpinnerEditingCellQuantity() {
             spinner = new Spinner<>(0, 1000, 0);
             spinner.setEditable(true);
+            // Listen for changes via spinner's value property.
             spinner.valueProperty().addListener((obs, oldValue, newValue) -> {
                 if (getTableRow() != null && getTableRow().getItem() != null) {
                     Product product = getTableRow().getItem();
@@ -649,18 +785,22 @@ public class HomeController {
                     cartTable.refresh();
                 }
             });
-            spinner.getEditor().setOnAction(e -> {
-                try {
-                    int newValue = Integer.parseInt(spinner.getEditor().getText());
-                    spinner.getValueFactory().setValue(newValue);
-                    if (getTableRow() != null && getTableRow().getItem() != null) {
-                        Product product = getTableRow().getItem();
-                        product.setQuantity(newValue);
-                        updateTotalAmount();
-                        cartTable.refresh();
+            // When Enter is pressed, commit the edit.
+            spinner.getEditor().setOnKeyReleased(e -> {
+                if (e.getCode() == KeyCode.ENTER) {
+                    try {
+                        int newValue = Integer.parseInt(spinner.getEditor().getText());
+                        spinner.getValueFactory().setValue(newValue);
+                        if (getTableRow() != null && getTableRow().getItem() != null) {
+                            Product product = getTableRow().getItem();
+                            product.setQuantity(newValue);
+                            commitEdit(newValue);
+                            updateTotalAmount();
+                            cartTable.refresh();
+                        }
+                    } catch (NumberFormatException ex) {
+                        // Optionally notify the user of invalid input.
                     }
-                } catch (NumberFormatException ex) {
-                    // Optionally notify the user of invalid input.
                 }
             });
         }
@@ -677,10 +817,6 @@ public class HomeController {
         }
     }
 
-    /**
-     * Custom TableCell for editing the "quantity per unit" (loose units).
-     * Allows a value starting from 0.
-     */
     private class SpinnerEditingCellQuantityPerUnit extends TableCell<Product, Integer> {
         private final Spinner<Integer> spinner;
 
@@ -695,18 +831,21 @@ public class HomeController {
                     cartTable.refresh();
                 }
             });
-            spinner.getEditor().setOnAction(e -> {
-                try {
-                    int newValue = Integer.parseInt(spinner.getEditor().getText());
-                    spinner.getValueFactory().setValue(newValue);
-                    if (getTableRow() != null && getTableRow().getItem() != null) {
-                        Product product = getTableRow().getItem();
-                        product.setQuantityPerUnit(newValue);
-                        updateTotalAmount();
-                        cartTable.refresh();
+            spinner.getEditor().setOnKeyReleased(e -> {
+                if (e.getCode() == KeyCode.ENTER) {
+                    try {
+                        int newValue = Integer.parseInt(spinner.getEditor().getText());
+                        spinner.getValueFactory().setValue(newValue);
+                        if (getTableRow() != null && getTableRow().getItem() != null) {
+                            Product product = getTableRow().getItem();
+                            product.setQuantityPerUnit(newValue);
+                            commitEdit(newValue);
+                            updateTotalAmount();
+                            cartTable.refresh();
+                        }
+                    } catch (NumberFormatException ex) {
+                        // Optionally notify the user of invalid input.
                     }
-                } catch (NumberFormatException ex) {
-                    // Optionally notify the user of invalid input.
                 }
             });
         }
@@ -721,8 +860,6 @@ public class HomeController {
                 setGraphic(spinner);
             }
         }
-
-
-
     }
+
 }

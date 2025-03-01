@@ -2,6 +2,7 @@ package com.example.pos;
 
 import com.example.pos.Services.ImageService;
 import com.example.pos.Services.PrinterService;
+import com.example.pos.Services.SalesService;
 import javafx.animation.FadeTransition;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
@@ -36,6 +37,7 @@ public class HelloController {
     @FXML public Button homeButton;
     public Label grossProfitLabel;
 
+    //private SalesService salesService=new SalesService();
     // Input fields for adding a product
     @FXML private TextField productNameField, priceField, originalPriceField, quantityField, quantityPerUnitField, searchField;
 
@@ -302,43 +304,43 @@ public class HelloController {
         alert.showAndWait();
     }
 
-    @FXML
-    private void handleBackButton(ActionEvent event) throws IOException {
-        switchScene(event, "hello-view.fxml", "Dosa Cola POS System");
-    }
-
-    @FXML
-    private void handleInventoryButton(ActionEvent event) throws IOException {
-        switchScene(event, "hello-view.fxml", "Inventory Management");
-    }
-
-    @FXML
-    private void handleSalesButton(ActionEvent event) throws IOException {
-        switchScene(event, "inventory.fxml", "Sales");
-    }
-
-    @FXML
-    private void handleReportsButton(ActionEvent event) throws IOException {
-        switchScene(event, "reports.fxml", "Reports");
-    }
-
-    private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
-        Parent root = loader.load();
-
-        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-        Scene scene = new Scene(root, 800, 2500);
-
-        // Apply Fade Transition
-        root.setOpacity(0);
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(500), root);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-        fadeIn.play();
-
-        stage.setScene(scene);
-        stage.setTitle(title);
-        stage.setMaximized(true);
-        stage.show();
-    }
+//    @FXML
+//    private void handleBackButton(ActionEvent event) throws IOException {
+//        switchScene(event, "hello-view.fxml", "Dosa Cola POS System");
+//    }
+//
+//    @FXML
+//    private void handleInventoryButton(ActionEvent event) throws IOException {
+//        switchScene(event, "hello-view.fxml", "Inventory Management");
+//    }
+//
+//    @FXML
+//    private void handleSalesButton(ActionEvent event) throws IOException {
+//        switchScene(event, "inventory.fxml", "Sales");
+//    }
+//
+//    @FXML
+//    private void handleReportsButton(ActionEvent event) throws IOException {
+//        switchScene(event, "reports.fxml", "Reports");
+//    }
+//
+//    private void switchScene(ActionEvent event, String fxmlFile, String title) throws IOException {
+//        FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
+//        Parent root = loader.load();
+//
+//        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+//        Scene scene = new Scene(root, 800, 2500);
+//
+//        // Apply Fade Transition
+//        root.setOpacity(0);
+//        FadeTransition fadeIn = new FadeTransition(Duration.millis(500), root);
+//        fadeIn.setFromValue(0);
+//        fadeIn.setToValue(1);
+//        fadeIn.play();
+//
+//        stage.setScene(scene);
+//        stage.setTitle(title);
+//        stage.setMaximized(true);
+//        stage.show();
+//    }
 }

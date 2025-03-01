@@ -53,6 +53,11 @@ public class NavController {
     switchScene(event, "factory-vendor.fxml", "Factory Vendor Management");
 
 }
+@FXML
+    public void handelsalessummaryButton(ActionEvent event) {
+    switchScene(event, "sales.fxml", "Factory Vendor Management");
+
+    }
     /**
      * Utility method to switch scenes with a fade transition.
      * This version always maximizes the stage.
@@ -88,5 +93,6 @@ public class NavController {
             e.printStackTrace();
         }
     }
+
 
 }
