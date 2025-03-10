@@ -30,3 +30,7 @@ Below are some screenshots of the application in action:
    ```bash
    git clone https://github.com/hassnbt/PointOfSale.git
 
+If you need any help or have any questions, feel free to contact me at hassnbt@gmail.com.
+
+   
+
