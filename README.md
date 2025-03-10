@@ -28,5 +28,5 @@ Below are some screenshots of the application in action:
 
 1. **Clone the repository:**
    ```bash
-  git clone https://github.com/hassnbt/PointOfSale.git
+   git clone https://github.com/hassnbt/PointOfSale.git
 
