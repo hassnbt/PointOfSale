@@ -22,6 +22,7 @@ import models.vendorbill;
 import models.vendorcart;
 import models.payementdetails;
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -479,6 +480,7 @@ public class FactoryVendorController {
         Label productLabel = new Label("Select Product:");
         ComboBox<Product> productComboBox = new ComboBox<>();
         ObservableList<Product> productList = FXCollections.observableArrayList();
+
         // Load products from PRODUCTS table
         String productSql = "SELECT r.ID, r.\"NAME\", r.PRICE, r.ORIGINAL_PRICE, r.QUANTITY, r.QUANTITY_PERUNIT, r.CREATED_ON, r.IS_ACTIVE FROM PRODUCTS r";
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
@@ -509,6 +511,8 @@ public class FactoryVendorController {
         Label priceLabel = new Label("Price:");
         TextField priceField = new TextField();
 
+        // NOTE: We no longer include a DatePicker here. Instead, we'll add one with the submit buttons.
+
         Button addProductButton = new Button("Add Product");
 
         // --- Table to display products added to the bill ---
@@ -527,6 +531,7 @@ public class FactoryVendorController {
         TableColumn<vendorcart, Double> billPriceColumn = new TableColumn<>("Price");
         billPriceColumn.setCellValueFactory(new PropertyValueFactory<>("price"));
         billPriceColumn.setPrefWidth(150);
+
         Label totalLabel = new Label("Total: 0.00");
         totalLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
@@ -538,6 +543,7 @@ public class FactoryVendorController {
             }
             totalLabel.setText("Total: " + total);
         };
+
         // --- Remove Button Column ---
         TableColumn<vendorcart, Void> removeColumn = new TableColumn<>("Action");
         removeColumn.setPrefWidth(100);
@@ -561,9 +567,6 @@ public class FactoryVendorController {
         billItemTable.getColumns().addAll(productNameColumn, billQuantityColumn, billPriceColumn, removeColumn);
         billItemTable.setItems(billItemList);
 
-        // --- Label to display total ---
-
-
         // --- "Add Product" button action ---
         addProductButton.setOnAction(ev -> {
             Product selectedProduct = productComboBox.getSelectionModel().getSelectedItem();
@@ -580,6 +583,9 @@ public class FactoryVendorController {
                 showAlert("Input Error", "Please enter valid numeric values for quantity and price.");
                 return;
             }
+            // Use current time as a temporary value; it will be overridden by the bill date later.
+            LocalDateTime createdOn = LocalDateTime.now();
+
             // Create a new vendorcart object. Bill ID will be updated after bill insertion.
             vendorcart billItem = new vendorcart(
                     vendor.getId(),        // Vendor ID
@@ -589,7 +595,7 @@ public class FactoryVendorController {
                     price,
                     quantity,
                     selectedProduct.getOriginalPrice(),
-                    LocalDateTime.now(),
+                    createdOn,             // Temporary createdOn
                     "system",              // createdBy (could be dynamic)
                     true,
                     0
@@ -602,9 +608,26 @@ public class FactoryVendorController {
             updateTotal.run();
         });
 
+        // --- Bill Date Picker (placed with submit buttons) ---
+        Label billDateLabel = new Label("Bill Date:");
+        DatePicker billDatePicker = new DatePicker();
+        billDatePicker.setValue(LocalDate.now());
+
         // --- Submit and Cancel buttons ---
         Button submitBillButton = new Button("Submit Bill");
         submitBillButton.setOnAction(ev -> {
+            // Get selected bill date from billDatePicker
+            LocalDate billDate = billDatePicker.getValue();
+            if (billDate == null) {
+                showAlert("Input Error", "Please select a bill date.");
+                return;
+            }
+            LocalDateTime billCreatedOn = billDate.atStartOfDay();
+            // Update createdOn field of each vendorcart item with the selected bill date.
+            for (vendorcart item : billItemList) {
+                item.setCreatedOn(billCreatedOn);
+            }
+
             // First, calculate the total amount for the bill.
             double totalAmount = 0.0;
             for (vendorcart item : billItemList) {
@@ -612,7 +635,7 @@ public class FactoryVendorController {
             }
 
             // Insert into VENDOR_BILL table and get the generated bill id.
-            String billInsertSql = "INSERT INTO VENDOR_BILL (FVID, AMOUNT_RECEIVED, AMOUNT_PENDING, DISCOUNT, AMOUNT_PENDING_TOTAL, CREATEDON, ISACTIVE) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)";
+            String billInsertSql = "INSERT INTO VENDOR_BILL (FVID, AMOUNT_RECEIVED, AMOUNT_PENDING, DISCOUNT, AMOUNT_PENDING_TOTAL, CREATEDON, ISACTIVE) VALUES (?, ?, ?, ?, ?, ?, ?)";
             long generatedBillId = 0;
             try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                  PreparedStatement billPstmt = conn.prepareStatement(billInsertSql, Statement.RETURN_GENERATED_KEYS)) {
@@ -622,7 +645,9 @@ public class FactoryVendorController {
                 billPstmt.setDouble(3, totalAmount);   // amount pending
                 billPstmt.setDouble(4, 0.0);             // discount
                 billPstmt.setDouble(5, totalAmount);     // total pending
-                billPstmt.setBoolean(6, true);           // isActive
+                // Use the bill date from billDatePicker for the bill created date
+                billPstmt.setDate(6, Date.valueOf(billDate));
+                billPstmt.setBoolean(7, true);           // isActive
                 billPstmt.executeUpdate();
 
                 try (ResultSet rs = billPstmt.getGeneratedKeys()) {
@@ -687,7 +712,7 @@ public class FactoryVendorController {
         HBox form = new HBox(10);
         form.getChildren().addAll(productLabel, productComboBox, quantityLabel, quantityField, priceLabel, priceField, addProductButton);
         HBox buttons = new HBox(10);
-        buttons.getChildren().addAll(submitBillButton, cancelButton);
+        buttons.getChildren().addAll(submitBillButton, cancelButton, billDateLabel, billDatePicker);
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
         // Add the form, table, running total label, then the buttons
@@ -709,6 +734,11 @@ public class FactoryVendorController {
         Label amountLabel = new Label("Amount:");
         TextField amountField = new TextField();
 
+        // Create DatePicker for Payment Date
+        Label dateLabel = new Label("Payment Date:");
+        DatePicker paymentDatePicker = new DatePicker();
+        paymentDatePicker.setValue(LocalDate.now()); // Default to today's date
+
         // Create Submit and Cancel buttons with styling
         Button submitButton = new Button("Submit");
         submitButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; "
@@ -721,9 +751,11 @@ public class FactoryVendorController {
         // Layout for input fields
         HBox form = new HBox(10);
         form.getChildren().addAll(noteLabel, noteField, amountLabel, amountField);
-        // Layout for buttons
+
+        // Layout for buttons and date picker
         HBox buttons = new HBox(10);
-        buttons.getChildren().addAll(submitButton, cancelButton);
+        buttons.getChildren().addAll(submitButton, cancelButton, dateLabel, paymentDatePicker);
+
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
         layout.getChildren().addAll(form, buttons);
@@ -743,13 +775,22 @@ public class FactoryVendorController {
             }
             String note = noteField.getText().trim();
 
-            String insertSql = "INSERT INTO FACTOR_PAID (FVID, AMOUNT_PAID, NOTE, ISACTIVE, CREATED_ON) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
+            // Retrieve selected payment date from DatePicker
+            LocalDate paymentDate = paymentDatePicker.getValue();
+            if (paymentDate == null) {
+                showAlert("Input Error", "Please select a payment date.");
+                return;
+            }
+
+            String insertSql = "INSERT INTO FACTOR_PAID (FVID, AMOUNT_PAID, NOTE, ISACTIVE, CREATED_ON) VALUES (?, ?, ?, ?, ?)";
             try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                  PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
-                pstmt.setLong(1, vendor.getId());  // Insert vendor id into FVID column
+                pstmt.setLong(1, vendor.getId());  // Vendor id
                 pstmt.setDouble(2, amount);
                 pstmt.setString(3, note);
                 pstmt.setBoolean(4, true);
+                // Use the selected payment date instead of CURRENT_TIMESTAMP
+                pstmt.setDate(5, Date.valueOf(paymentDate));
                 pstmt.executeUpdate();
                 showAlert("Success", "Amount added successfully.");
                 payStage.close();
@@ -759,7 +800,6 @@ public class FactoryVendorController {
             }
         });
     }
-
 
     private void showPaymentDetails(factoryvendor vendor) {
         Stage paymentStage = new Stage();

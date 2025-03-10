@@ -261,20 +261,31 @@ public class InventoryController {
         TextField paymentNoteField = new TextField();
         paymentNoteField.setPromptText("Enter payment note");
 
+        // Add DatePicker for selecting a payment date
+        DatePicker paymentDatePicker = new DatePicker();
+        paymentDatePicker.setPromptText("Select Payment Date (Optional)");
+
         grid.add(new Label("Payment Received:"), 0, 0);
         grid.add(paymentField, 1, 0);
         grid.add(fullPaymentCheckBox, 2, 0);
         grid.add(new Label("Note:"), 0, 1);
-        grid.add(paymentNoteField, 1, 1, 2, 1); // Span across columns if desired
+        grid.add(paymentNoteField, 1, 1, 2, 1);
+        grid.add(new Label("Payment Date:"), 0, 2);
+        grid.add(paymentDatePicker, 1, 2);
 
         dialog.getDialogPane().setContent(grid);
 
-        // Return a Map with keys "payment" and "note"
+        // Return a Map with keys "payment", "note", and "date"
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == okButtonType) {
                 Map<String, String> result = new HashMap<>();
                 result.put("payment", fullPaymentCheckBox.isSelected() ? "ALL" : paymentField.getText());
                 result.put("note", paymentNoteField.getText());
+                if (paymentDatePicker.getValue() != null) {
+                    result.put("date", paymentDatePicker.getValue().toString());
+                } else {
+                    result.put("date", null);
+                }
                 return result;
             } else if (dialogButton == detailButtonType) {
                 return Collections.singletonMap("payment", "DETAIL");
@@ -288,16 +299,15 @@ public class InventoryController {
         if (result.isPresent()) {
             Map<String, String> paymentData = result.get();
             String paymentInput = paymentData.get("payment");
-            // If "DETAIL" button was pressed, show bill details from CART table.
             if ("DETAIL".equals(paymentInput)) {
                 showBillDetails(bill.getBillid());
                 return;
             }
-            // If "PAYMENT_DETAIL" button was pressed, show details from AMOUNT_RECEIVE table.
             if ("PAYMENT_DETAIL".equals(paymentInput)) {
                 showPaymentDetailsFromAmountReceive(bill.getBillid());
                 return;
             }
+
             double paymentAmount;
             if ("ALL".equals(paymentInput)) {
                 paymentAmount = bill.getCashOut();
@@ -309,6 +319,7 @@ public class InventoryController {
                     return;
                 }
             }
+
             double newCashIn = bill.getCashIn() + paymentAmount;
             double newCashOut = bill.getCashOut() - paymentAmount;
             if (newCashOut < 0) {
@@ -320,19 +331,27 @@ public class InventoryController {
             billsTable.refresh();
             updateSummary();
 
-            // Now, insert a record into the AMOUNT_RECEIVE table with the note.
+            // Now, insert a record into the AMOUNT_RECEIVE table with the note and date.
             String paymentNote = paymentData.get("note");
+            String paymentDate = paymentData.get("date"); // Get selected date
+
             final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
             final String USER = "sysdba";
             final String PASSWORD = "123456";
-            String insertSql = "INSERT INTO AMOUNT_RECEIVE (BILL_ID, NOTE, CREATED_ON, IS_ACTIVE,AMOUNT) " +
-                    "VALUES (?, ?, CURRENT_TIMESTAMP, ?,?)";
+            String insertSql = "INSERT INTO AMOUNT_RECEIVE (BILL_ID, NOTE, CREATED_ON, IS_ACTIVE, AMOUNT) " +
+                    "VALUES (?, ?, ?, ?, ?)";
+
             try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                  PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
                 pstmt.setLong(1, bill.getBillid());
                 pstmt.setString(2, paymentNote);
-                pstmt.setBoolean(3, true);
-                pstmt.setDouble(4, paymentAmount);
+                if (paymentDate != null) {
+                    pstmt.setDate(3, java.sql.Date.valueOf(paymentDate)); // Use selected date
+                } else {
+                    pstmt.setDate(3, new java.sql.Date(System.currentTimeMillis())); // Default to current timestamp
+                }
+                pstmt.setBoolean(4, true);
+                pstmt.setDouble(5, paymentAmount);
                 pstmt.executeUpdate();
             } catch (SQLException ex) {
                 ex.printStackTrace();
@@ -457,7 +476,8 @@ public class InventoryController {
 
         TableColumn<Product, Integer> quantityPerUnitCol = new TableColumn<>("Quantity per Unit");
         quantityPerUnitCol.setCellValueFactory(new PropertyValueFactory<>("quantityPerUnit"));
-
+        TableColumn<Product, Boolean> aactiveCol = new TableColumn<>("Status");
+        aactiveCol.setCellValueFactory(new PropertyValueFactory<>("active"));
         TableColumn<Product, Double> totalCol = new TableColumn<>("Total");
         totalCol.setCellValueFactory(cellData -> {
             Product p = cellData.getValue();
@@ -473,7 +493,7 @@ public class InventoryController {
             return new SimpleDoubleProperty(total).asObject();
         });
 
-        detailsTable.getColumns().addAll(productIdCol, nameCol, priceCol, quantityCol, quantityPerUnitCol, totalCol);
+        detailsTable.getColumns().addAll(productIdCol, nameCol, priceCol, quantityCol,aactiveCol, quantityPerUnitCol, totalCol);
 
         // If the bill has an area (area checkout), add an "Edit" column.
         if (areaId != null) {

@@ -26,6 +26,7 @@ import models.Employee;
 import models.Vendor;
 import java.io.IOException;
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -102,7 +103,8 @@ public class HomeController {
     private CheckBox manualPriceCheckBox;
     @FXML
     private TextField manualPriceField;
-
+    @FXML
+    private DatePicker checkoutDatePicker;
     @FXML
     private void toggleManualPriceField() {
         boolean selected = manualPriceCheckBox.isSelected();
@@ -384,6 +386,7 @@ public class HomeController {
     }
 
     @FXML
+
     private void handleCheckout(ActionEvent event) {
         if (cart.isEmpty()) {
             showAlert("Error", "Cart is empty!", Alert.AlertType.ERROR);
@@ -394,11 +397,8 @@ public class HomeController {
         dialog.setTitle("Checkout");
         dialog.setHeaderText("Enter Checkout Details");
 
-        // Create button types for OK, Detail, Payment Details, and Cancel
         ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
-        ButtonType detailButtonType = new ButtonType("Detail", ButtonBar.ButtonData.OTHER);
-        ButtonType paymentDetailButtonType = new ButtonType("Payment Details", ButtonBar.ButtonData.OTHER);
-        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, detailButtonType, paymentDetailButtonType, ButtonType.CANCEL);
+        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
 
         // --- Mode Selection: using RadioButtons in a ToggleGroup ---
         ToggleGroup modeGroup = new ToggleGroup();
@@ -432,6 +432,10 @@ public class HomeController {
             if (newVal) amountReceivedField.clear();
         });
 
+        // NEW: Checkout DatePicker for normal mode
+//        DatePicker checkoutDatePicker = new DatePicker();
+        checkoutDatePicker.setPromptText("Select Checkout Date (Optional)");
+
         normalGrid.add(new Label("Amount Received:"), 0, 0);
         normalGrid.add(amountReceivedField, 1, 0);
         normalGrid.add(fullAmountCheckBox, 2, 0);
@@ -441,6 +445,8 @@ public class HomeController {
         normalGrid.add(notesField, 1, 2);
         normalGrid.add(new Label("Discount:"), 0, 3);
         normalGrid.add(discountField, 1, 3);
+//        normalGrid.add(new Label("Checkout Date:"), 0, 4);
+//        normalGrid.add(checkoutDatePicker, 1, 4, 2, 1);
 
         // --- Area Checkout Grid: load employees from DB ---
         GridPane areaGrid = new GridPane();
@@ -453,7 +459,7 @@ public class HomeController {
         employeeComboBox.setPromptText("Select Employee");
         areaGrid.add(new Label("Select Employee:"), 0, 0);
         areaGrid.add(employeeComboBox, 1, 0);
-        // New: Add Area selection ComboBox for Area Checkout
+        // Add Area selection ComboBox
         ComboBox<Area> areaComboBox = new ComboBox<>();
         ObservableList<Area> areaList = getAreasFromDB();
         areaComboBox.setItems(areaList);
@@ -470,10 +476,10 @@ public class HomeController {
         ObservableList<Vendor> vend = getVendorsFromDB();
         vendorComboBox.setItems(vend);
         vendorComboBox.setPromptText("Select Vendor");
-        vendorComboBox.setPrefWidth(200); // increased readability
+        vendorComboBox.setPrefWidth(200); // Increase readability
         vendorGrid.add(new Label("Select Vendor:"), 0, 0);
         vendorGrid.add(vendorComboBox, 1, 0);
-        // Create separate controls for vendor mode.
+        // Create separate controls for vendor checkout.
         TextField vendorAmountReceivedField = new TextField();
         vendorAmountReceivedField.setPromptText("Amount Received");
         TextFormatter<String> vendorNumericFormatter = new TextFormatter<>(change -> {
@@ -529,6 +535,7 @@ public class HomeController {
                     result.put("vendorId", "");
                     result.put("employeeId", "");
                     result.put("areaId", "");
+                    result.put("checkoutDate", checkoutDatePicker.getValue() != null ? checkoutDatePicker.getValue().toString() : "");
                 } else if (selected == areaRB) {
                     result.put("mode", "area");
                     Employee emp = employeeComboBox.getValue();
@@ -542,6 +549,7 @@ public class HomeController {
                     result.put("discount", "0");
                     result.put("notes", "");
                     result.put("vendorId", "");
+                    result.put("checkoutDate", ""); // Not used in area mode
                 } else if (selected == vendorRB) {
                     result.put("mode", "vendor");
                     Vendor ven = vendorComboBox.getValue();
@@ -553,6 +561,7 @@ public class HomeController {
                     result.put("notes", "");
                     result.put("employeeId", "");
                     result.put("areaId", "");
+                    result.put("checkoutDate", ""); // Not used in vendor mode
                 }
                 return result;
             }
@@ -562,7 +571,6 @@ public class HomeController {
         Optional<Map<String, String>> result = dialog.showAndWait();
         if (result.isPresent()) {
             Map<String, String> checkoutData = result.get();
-            // Handle "DETAIL" mode if needed (not shown here)
             try {
                 String totalText = totalAmountLabel.getText();
                 double total = Double.parseDouble(totalText.replaceAll("[^0-9.]", ""));
@@ -583,8 +591,15 @@ public class HomeController {
                 String notes = checkoutData.get("notes");
                 String vendorIdStr = checkoutData.get("vendorId");
                 String employeeIdStr = checkoutData.get("employeeId");
-                String areaId = checkoutData.get("areaId");
 
+                // Determine checkout created date.
+                LocalDateTime createdOn;
+                String checkoutDateStr = checkoutData.get("checkoutDate");
+                if (checkoutDateStr != null && !checkoutDateStr.isEmpty()) {
+                    createdOn = LocalDate.parse(checkoutDateStr).atStartOfDay();
+                } else {
+                    createdOn = LocalDateTime.now();
+                }
 
                 final String URL = "jdbc:firebirdsql://localhost:3050/C:/firebird/data/DOSACOLA.FDB";
                 final String USER = "sysdba";
@@ -593,40 +608,28 @@ public class HomeController {
                 // Insert the bill record.
                 int billId = -1;
                 String billSql = "INSERT INTO bills (cash_in, cash_out, discount, created, is_active, name, note, total, vid, eid, areaid) " +
-                        "VALUES (?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, ?, ?, ?, ?, ?)";
+                        "VALUES (?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?)";
                 try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                      PreparedStatement billPstmt = conn.prepareStatement(billSql, Statement.RETURN_GENERATED_KEYS)) {
                     billPstmt.setDouble(1, amountReceived);
                     billPstmt.setDouble(2, cashOut);
                     billPstmt.setDouble(3, discount);
-                    billPstmt.setString(4, buyerName);
-                    billPstmt.setString(5, notes);
-                    billPstmt.setDouble(6, total);
+                    billPstmt.setTimestamp(4, Timestamp.valueOf(createdOn));
+                    billPstmt.setString(5, buyerName);
+                    billPstmt.setString(6, notes);
+                    billPstmt.setDouble(7, total);
                     if (vendorIdStr != null && !vendorIdStr.isEmpty()) {
-                        billPstmt.setInt(7, Integer.parseInt(vendorIdStr));
-                    } else {
-                        billPstmt.setNull(7, Types.INTEGER);
-                    }
-                    if (employeeIdStr != null && !employeeIdStr.isEmpty()) {
-                        billPstmt.setInt(8, Integer.parseInt(employeeIdStr));
+                        billPstmt.setInt(8, Integer.parseInt(vendorIdStr));
                     } else {
                         billPstmt.setNull(8, Types.INTEGER);
                     }
-                    // For area checkout, if needed. For now, we assume areaId is not used in normal or vendor mode.
-                    if(areaId!=null&&!areaId.isEmpty())
-                    {
-                        billPstmt.setInt(9, Integer.parseInt(areaId));
-
-
-                    }
-                    else
-                    {
+                    if (employeeIdStr != null && !employeeIdStr.isEmpty()) {
+                        billPstmt.setInt(9, Integer.parseInt(employeeIdStr));
+                    } else {
                         billPstmt.setNull(9, Types.INTEGER);
-
-
-
                     }
-                  //  billPstmt.setNull(9, Types.INTEGER);
+                    // For normal and vendor modes, area is not used.
+                    billPstmt.setNull(10, Types.INTEGER);
                     billPstmt.executeUpdate();
 
                     ResultSet generatedKeys = billPstmt.getGeneratedKeys();
